@@ -5,7 +5,7 @@ import time
 
 #t1 = time.time()
 
-nd2_file = ND2Reader('./../DataForTracking/Large mvt 1.nd2')
+nd2_file = ND2Reader('Large mvt 1.nd2')
 
 # c=4 : "normal" image
 # c=0 : cell image

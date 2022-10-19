@@ -130,6 +130,23 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+*.joblib
+*.txt
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.log
+*.fls
+*.gz
 
+*.pt
+experiments/*/*
+*.png
+*.bin
+events.*
+*.json
+*.nd2
 # Pyre type checker
 .pyre/
+.idea/

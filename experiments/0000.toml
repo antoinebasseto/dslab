@@ -1,0 +1,8 @@
+#Test
+
+[config]
+model = "DeepRanking"
+learning_rate = 0.1
+train_dataset = 'google_maps_dataset_100'
+val_dataset = 'training'
+seed = 123456
