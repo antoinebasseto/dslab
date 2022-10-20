@@ -23,7 +23,9 @@ repository.
 
 1. Currently, there is only one image (small movement 1) for which we have detected droplets. The dataset is in `utils/droplets_and_cells/finished_outputs/smallMovement1_droplets_idtest1.csv`. From this csv file which only contains droplet locations etc, a dataset can be created by using the according nd2 image and the function `create_dataset` in `utils/droplet_retreiver.py` which should be documented. Not all free parameters / options of `create_dataset` have been enabled (like slack around the droplet and whether to suppress pixels outside of the droplet).
 
-#### TODO
+### Droplet detection
+
+1. Droplet detection can be performed by executing `utils/droplets_and_cells/droplets_and_cells.py`. It will also detect cells but the scaling of the intensities is a bit off so it currently works only for the small movement 1 image. In other cases, cells do get detected but the intensity histograms across multiple images do not match.
 
 ## Training
 
