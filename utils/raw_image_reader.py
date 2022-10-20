@@ -3,6 +3,15 @@ import numpy as np
 import cv2 as cv
 from tqdm import tqdm
 
+# THIS IS THE PRIMARY FUNCTION
+# frames is the list of frames (innteger index) you want to retreive
+# channels is the list of channels (strings) you want to retreive. 
+#   'BF' is the identifier for the brightfield images
+#   'DAPI' is the identifier for the DAPI channel
+# path_to_image is the full path to the nd2 image, suffix included
+# If allFrames == True, frames is ignored and all frames should be processed
+# If allChannels == True, all channels will be output (not working atm)
+# Returns a 4d numpy array (uint16 so be careful) with the following axes: Frames, Channels, Y and X.
 
 def get_image_as_ndarray(frames, channels, path_to_image, allFrames = True, allChannels = False):
     if allChannels:

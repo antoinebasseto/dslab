@@ -65,6 +65,17 @@ def get_patch(image, center_row, center_col, radius, buffer = 3, suppress_rest =
 # returns a list with one element for each frame. Each element is again a list of dicts / dataframes (not sure) 
 #   which contains all the data about the droplet plus a 'patch' which is the image patch around the droplet
 
+# Example use:
+"""
+    image_path = 'raw_images/smallMovement1.nd2'
+    table_path = 'finished_outputs/smallMovement1_droplets_idtest1.csv'
+    dataset = create_dataset([0], ['BF'], image_path, table_path)
+    print(dataset[0][0])
+    print(dataset[0][0]['patch'].shape)
+    cv.imshow("test", dataset[0][0]['patch'][0, :, :])
+    cv.waitKey(0)
+"""
+
 def create_dataset(frames, channels, image_path, droplet_table_path):
     droplet_table = pd.read_csv(droplet_table_path, index_col = False)
     raw_images = get_image_as_ndarray(frames, channels, image_path, allFrames = False, allChannels = False)

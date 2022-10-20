@@ -10,12 +10,18 @@ repository.
 
 ### Software
 
-1. Install all packages in `environment.yml` by running
+1. At the moment, a basic environment is given in `utils/droplets_and_cells/droplets_and_cells_environment.yml` and can be installed by running
     ```
     conda env create -f environment.yml
    ```
 
+### Images
+
+1. The nd2reader library does not work on all images. Instead, we use the nd2 library.  To that end, `get_image_as_ndarray` in `utils/raw_image_reader.py` can be used to extract frames and channels as numpy arrays from the nd2 image.
+
 ### Datasets
+
+1. Currently, there is only one image (small movement 1) for which we have detected droplets. The dataset is in `utils/droplets_and_cells/finished_outputs/smallMovement1_droplets_idtest1.csv`. From this csv file which only contains droplet locations etc, a dataset can be created by using the according nd2 image and the function `create_dataset` in `utils/droplet_retreiver.py` which should be documented. Not all free parameters / options of `create_dataset` have been enabled (like slack around the droplet and whether to suppress pixels outside of the droplet).
 
 #### TODO
 
