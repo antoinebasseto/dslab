@@ -1,5 +1,10 @@
-# Data folder
-data/
+# Results folder
+results/*
+!results/.gitkeep
+
+# Images folder
+data/images/*
+!data/images/.gitkeep
 
 # OS files
 .DS_Store
@@ -147,6 +152,17 @@ experiments/*/*
 events.*
 *.json
 *.nd2
+
 # Pyre type checker
 .pyre/
 .idea/
+
+# Default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+
