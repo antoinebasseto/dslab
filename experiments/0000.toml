@@ -1,8 +1,15 @@
 #Test
 
 [config]
-model = "DeepRanking"
+model = "ConvAE"
 learning_rate = 0.1
-train_dataset = 'google_maps_dataset_100'
-val_dataset = 'training'
+train_dataset = 'data/MNIST/train'
+val_dataset = 'data/MNIST/test'
+img_size = [3, 28, 28]
+loss = 'MSE'
+epochs = 10
+steps_per_checkpoint = 2000
+steps_per_validation = 1000
+batch_size = 32
+tensorboard = false
 seed = 123456

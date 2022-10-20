@@ -7,7 +7,7 @@ import toml
 import logging
 import torch
 
-from models.DeepRanking import DeepRanking
+from models.AE import DeepRanking
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
 EXPERIMENTS_PATH = Path(PROJECT_PATH / "experiments")
@@ -66,7 +66,7 @@ def main() -> None:
     logging.basicConfig(filename=str(experiment_dir / 'output.log'), level=logging.INFO)
     logging.getLogger().addHandler(logging.StreamHandler())
 
-    if config['model'] == "DeepRanking":
+    if config['model'] == "ConvAE":
         if "checkpoint" in config:
             model = DeepRanking(config)
             checkpoint_path = config["checkpoint"]
