@@ -1,8 +1,10 @@
 # Results folder
-results/
+results/*
+!results/.gitkeep
 
-# Data folder
-data/
+# Images folder
+data/images/*
+!data/images/.gitkeep
 
 # OS files
 .DS_Store
