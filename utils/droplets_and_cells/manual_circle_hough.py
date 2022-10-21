@@ -1,4 +1,5 @@
 from find_hough_circle import circle_RANSAC
+from find_hough_circle import circle_RANSAC3
 import cv2 as cv
 import numpy as np
 from nms import canny_nms
@@ -65,7 +66,8 @@ def manual_circle_hough (img, refine):
             cv.circle(patch_mask, np.flip(center_in_patch) , 10, 0.0, -1)
             patch_keypoints = patch_keypoints * patch_mask
             # Get the refined circle estimate
-            refined_circle = circle_RANSAC(patch_keypoints, patch_edges, 15, 35)
+            # refined_circle = circle_RANSAC(patch_keypoints, patch_edges, 15, 35)
+            refined_circle = circle_RANSAC3(patch_keypoints, patch_edges, 15, 35)
             refined_circle = (refined_circle[0] + max(int(center[0]) - radius - 5, 0), refined_circle[1] + max(int(center[1]) - radius - 5, 0), int(refined_circle[2]))
             center = (refined_circle[0], refined_circle[1])
             radius = refined_circle[2]
