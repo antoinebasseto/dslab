@@ -14,8 +14,7 @@ from tqdm import tqdm
 # Returns a 4d numpy array (uint16 so be careful) with the following axes: Frames, Channels, Y and X.
 
 def get_image_as_ndarray(frames, channels, path_to_image, allFrames = True, allChannels = False):
-    if allChannels:
-        assert(False and 'Not implemented')
+
 
     f = nd2.ND2File(path_to_image)
 
@@ -30,9 +29,13 @@ def get_image_as_ndarray(frames, channels, path_to_image, allFrames = True, allC
 
 
     channel_idx_lookup = {}
-
+    if allChannels:
+        channels = []
+    print('Channel names:')
     for c in f.metadata.channels:
         channelname = c.channel.name
+        channels.append(channelname)
+        print('\t' + channelname)
         channelidx = c.channel.index
         if (channelname in channels):
             channel_idx_lookup[channelname] = channelidx
