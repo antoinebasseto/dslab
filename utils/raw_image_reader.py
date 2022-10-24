@@ -34,6 +34,43 @@ def get_image_as_ndarray(frames, channels, path_to_image, allFrames = True, allC
     print('Channel names:')
     for c in f.metadata.channels:
         channelname = c.channel.name
+        if allChannels:
+            channels.append(channelname)
+        print('\t' + channelname)
+        channelidx = c.channel.index
+        if (channelname in channels):
+            channel_idx_lookup[channelname] = channelidx
+    channel_idx_precompute = []
+    for ch_name in channels:
+        channel_idx_precompute.append(channel_idx_lookup[ch_name])
+    if allFrames:
+        frames = range(nr_frames)
+    fullimage = f.asarray()
+    output = (fullimage[frames, :, :, :])[:, channel_idx_precompute, :, :]
+    return output
+
+
+def get_image_as_ndarray_old(frames, channels, path_to_image, allFrames = True, allChannels = False):
+
+
+    f = nd2.ND2File(path_to_image)
+
+    nr_frames = f.sizes['T']
+    nr_channels = f.sizes['C']
+    nr_rows = f.sizes['Y']
+    nr_cols = f.sizes['X']
+
+    print('Nr frames: ' + str(nr_frames))
+    print('Nr channels: ' + str(nr_channels))
+    print('Image dimensions: ' + str(nr_rows) + 'x' + str(nr_cols))
+
+
+    channel_idx_lookup = {}
+    if allChannels:
+        channels = []
+    print('Channel names:')
+    for c in f.metadata.channels:
+        channelname = c.channel.name
         channels.append(channelname)
         print('\t' + channelname)
         channelidx = c.channel.index
