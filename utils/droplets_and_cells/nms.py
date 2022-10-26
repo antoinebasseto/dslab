@@ -11,13 +11,13 @@ def nms (img):
     ans = ans * (img > aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
     offx = -1
     offy = 0
-    ans = ans * (img > aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
+    ans = ans * (img >= aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
     offx = 0
     offy = 1
     ans = ans * (img > aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
     offx = 0
     offy = -1
-    ans = ans * (img > aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
+    ans = ans * (img >= aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
 
     offx = 1
     offy = 1
@@ -27,10 +27,30 @@ def nms (img):
     ans = ans * (img > aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
     offx = 1
     offy = -1
-    ans = ans * (img > aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
+    ans = ans * (img >= aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
     offx = -1
     offy = -1
+    ans = ans * (img >= aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
+
+    return ans
+
+# Nonmaxima suppression. Finds single points that stick out compared to their 4-neighborhood
+def nms4 (img):
+    aux = np.zeros((img.shape[0] + 2, img.shape[1] + 2), dtype = np.float32)
+    aux[1: 1 + img.shape[0], 1: 1 + img.shape[1]] = img
+    ans = np.ones(img.shape, dtype = np.float32)
+    offx = 1
+    offy = 0
     ans = ans * (img > aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
+    offx = -1
+    offy = 0
+    ans = ans * (img >= aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
+    offx = 0
+    offy = 1
+    ans = ans * (img > aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
+    offx = 0
+    offy = -1
+    ans = ans * (img >= aux[1 + offx: img.shape[0] + 1 + offx, 1 + offy: img.shape[1] + 1 + offy])
 
     return ans
 
@@ -121,3 +141,58 @@ def canny_nms (img):
 
     ans = np.max(compound_dominants * orientations, axis = 2)
     return ans
+
+
+def grad_nms (img):
+
+    grad_x = cv.Scharr(img, -1, 1, 0)
+    grad_y = cv.Scharr(img, -1, 0, 1)
+    # grad_x = cv.Sobel(img, -1, 1, 0, ksize = 1)
+    # grad_y = cv.Sobel(img, -1, 0, 1, ksize = 1)
+
+    # cv.imshow('test',grad_x)
+    # cv.waitKey(0)
+    # cv.imshow('test',grad_y)
+    # cv.waitKey(0)
+
+    # grad_xx = cv.Sobel(img, -1, 2, 0, ksize = 1)
+    # grad_xy = cv.Sobel(img, -1, 1, 1, ksize = 1)
+    # grad_yy = cv.Sobel(img, -1, 0, 2, ksize = 1)
+    grad_xx = cv.Scharr(grad_x, -1, 1, 0)
+    grad_yy = cv.Scharr(grad_y, -1, 0, 1)
+    grad_xy_sq = cv.Scharr(grad_y, -1, 1, 0) * cv.Scharr(grad_x, -1, 0, 1)
+
+    dets = grad_xx * grad_yy - grad_xy_sq
+    ev1 = (grad_xx + grad_yy) * 0.5 + np.sqrt(((grad_xx + grad_yy) * 0.5)**2 - dets)
+    ev2 = (grad_xx + grad_yy) * 0.5 - np.sqrt(((grad_xx + grad_yy) * 0.5)**2 - dets)
+    # ev1 = grad_xx
+    # ev2 = grad_yy
+    # cv.imshow('test',(ev1 < 0) * 1.0)
+    # cv.waitKey(0)
+    # cv.imshow('test',(ev2 < 0) * 1.0)
+    # cv.waitKey(0)
+    # cv.imshow('test',(ev1 < 0) * (ev2 < 0) * 1.0)
+    # cv.waitKey(0)
+
+    grad_norm = np.linalg.norm(np.asarray([grad_x, grad_y]), axis = 0)
+    # cv.imshow('test',grad_norm / grad_norm.max())
+    # cv.waitKey(0)
+    gradient_minima = nms(-grad_norm)
+    # cv.imshow('test',gradient_minima)
+    # cv.waitKey(0)
+    # cv.imshow('test',(ev1 < 0) * (ev2 < 0) * 1.0)
+    # cv.waitKey(0)
+    # cv.imshow('test',gradient_minima)
+    # cv.waitKey(0)
+    # cv.imshow('test',(ev1 < 0) * (ev2 < 0) * 1.0)
+    # cv.waitKey(0)
+    # cv.imshow('test',gradient_minima)
+    # cv.waitKey(0)
+    # cv.imshow('test',(ev1 < 0) * (ev2 < 0) * 1.0)
+    # cv.waitKey(0)
+    nd_ness = np.logical_and(ev1 < 0, ev2 < 0) * 1.0
+    gradient_minima = gradient_minima * nd_ness
+    # cv.imshow('test',gradient_minima)
+    # cv.waitKey(0)
+
+    return gradient_minima
