@@ -113,15 +113,15 @@ def cell_finding2 (droplet_circles, raw_dapi, raw_bf):
             window_cols = np.asarray((max(0, center[1] - window_dim), min(s[1], center[1] + window_dim + 1)), dtype = np.int32)
             target_rows = window_rows - (center[0] - window_dim)
             target_cols = window_cols - (center[1] - window_dim)
-            patch = np.zeros((2 * window_dim + 1, 2 * window_dim + 1), dtype = np.float32)
+            # patch = np.zeros((2 * window_dim + 1, 2 * window_dim + 1), dtype = np.uint16)
             local_mask = np.zeros((2 * window_dim + 1, 2 * window_dim + 1), dtype = np.float32)
             cv.circle(local_mask, np.asarray([window_dim, window_dim]), radius, 1.0, -1)
             raw_patch = np.zeros((2 * window_dim + 1, 2 * window_dim + 1), dtype = np.float32)
             raw_patch[target_rows[0]: target_rows[1], target_cols[0]: target_cols[1]] = raw_dapi[window_rows[0]: window_rows[1], window_cols[0]: window_cols[1]] * 2.0**(-16)
             signal_mask = np.zeros((2 * window_dim + 1, 2 * window_dim + 1), dtype = np.float32)
             signal_mask[target_rows[0]: target_rows[1], target_cols[0]: target_cols[1]] = 1.0
-            # raw_bf_patch = np.zeros((2 * window_dim + 1, 2 * window_dim + 1), dtype = np.float32)
-            # raw_bf_patch[target_rows[0]: target_rows[1], target_cols[0]: target_cols[1]] = raw_bf[window_rows[0]: window_rows[1], window_cols[0]: window_cols[1]] * 2.0**(-16)
+            raw_bf_patch = np.zeros((2 * window_dim + 1, 2 * window_dim + 1), dtype = np.float32)
+            raw_bf_patch[target_rows[0]: target_rows[1], target_cols[0]: target_cols[1]] = raw_bf[window_rows[0]: window_rows[1], window_cols[0]: window_cols[1]] * 2.0**(-16)
             median_of_relevant_pixels = np.median(raw_patch[signal_mask * local_mask == 1.0])
             raw_patch[signal_mask == 0.0] = median_of_relevant_pixels
             
@@ -171,30 +171,44 @@ def cell_finding2 (droplet_circles, raw_dapi, raw_bf):
             noise_mean = np.mean(corrected_raw_patch[guaranteed_background_mask_final == 1.0])
             # print(noise_mean)
             # print(corrected_patch[peaks[0, :, :] == 1.0].shape)
-            peaks[1, :, :] = (1.0 - np.exp(-(corrected_patch - noise_mean) / (10 * noise_std))) * peaks[0, :, :]
+            # peaks[1, :, :] = (1.0 - np.exp(-(corrected_patch - noise_mean) / (10 * noise_std))) * peaks[0, :, :]
+            peaks[1, :, :] = (corrected_patch - noise_mean) / (10.0 * noise_std) * peaks[0, :, :]
 
 
             peaks_detected_idxs = np.argwhere(peaks_nms != 0.0)
             if peaks_detected_idxs.shape[0] > 0:
                 guaranteed_background_idxs = np.argwhere(guaranteed_background_mask_final == 1.0)
+                # print('')
+                # print('')
+                # print(guaranteed_background_idxs.shape)
                 distance_vecs = guaranteed_background_idxs[:, None, :] - peaks_detected_idxs[None, :, :]
-                distances = np.min(np.linalg.norm(distance_vecs, axis = 2), axis = 0)
-                presistency_score = (1.0 - np.exp(-(distances) / 1.5))
-                peaks[(np.repeat(2, distances.size), peaks_detected_idxs[:, 0], peaks_detected_idxs[:, 1])] = presistency_score
+                # print(distance_vecs.shape)
+                distances = np.linalg.norm(distance_vecs, axis = 2)
+                distances.partition(10, axis = 0)
+                mean_distances = np.mean(distances[: 10, :], axis = 0)
+                # distances = np.min(np.linalg.norm(distance_vecs, axis = 2), axis = 0)
+                # print(mean_distances.shape)
+                # print(mean_distances)
+
+
+                # presistency_score = (1.0 - np.exp(-(mean_distances) / 1.5))
+                presistency_score = mean_distances
+
+
+                # print(presistency_score)
+                # print((np.repeat(2, mean_distances.size), peaks_detected_idxs[:, 0], peaks_detected_idxs[:, 1]))
+                peaks[(np.repeat(2, mean_distances.size), peaks_detected_idxs[:, 0], peaks_detected_idxs[:, 1])] = presistency_score
 
             ans[:, window_rows[0]: window_rows[1], window_cols[0]: window_cols[1]] = ans[:, window_rows[0]: window_rows[1], window_cols[0]: window_cols[1]] + peaks[:, target_rows[0]: target_rows[1], target_cols[0]: target_cols[1]]
 
-            # to_display7 = raw_bf_patch
-            # to_display = np.asarray([patch_nms * local_mask, inversepatch_nms * local_mask, guaranteed_background_mask * local_mask])
-            # to_display2 = np.asarray([patch_nms * local_mask, inversepatch_nms * local_mask, guaranteed_background_mask_dilated * local_mask])
-            # to_display3 = np.asarray([peaks[0, :, :] , inversepatch_nms * local_mask, guaranteed_background_mask_final * local_mask])
-            # to_display4 = (patch - patch.min()) / (patch.max() - patch.min())
-            # to_display5 = (corrected_patch - corrected_patch.min()) / (corrected_patch.max() - corrected_patch.min())
+            to_display7 = raw_bf_patch
+            to_display = np.asarray([patch_nms * local_mask, inversepatch_nms * local_mask, guaranteed_background_mask * local_mask])
+            to_display2 = np.asarray([patch_nms * local_mask, inversepatch_nms * local_mask, guaranteed_background_mask_dilated * local_mask])
+            to_display3 = np.asarray([peaks[0, :, :] , inversepatch_nms * local_mask, guaranteed_background_mask_final * local_mask])
+            to_display5 = (corrected_patch - corrected_patch.min()) / (corrected_patch.max() - corrected_patch.min())
 
 
             # cv.imshow('test',np.float32(np.transpose(resize_patch(to_display7, 500))))
-            # cv.waitKey(0)
-            # cv.imshow('test', np.float32(np.transpose(resize_patch(to_display4, 500))))
             # cv.waitKey(0)
             # cv.imshow('test', np.float32(np.transpose(resize_patch(to_display5, 500))))
             # cv.waitKey(0)

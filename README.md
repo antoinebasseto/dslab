@@ -24,10 +24,18 @@ repository.
 1. Currently, we have 3 images (small movement 1, 2, and 3) for which we have detected droplets and cells. The datasets are in `utils/droplets_and_cells/finished_outputs`. In there you will find the csv tables for both droplets and cells for all three images mentioned above. Additionally, you can also find the legacy dataset for the image "small movement 1" which has a `legacy` at the end of its name.
 To create a "drolet dataset" from these csv files, one needs to use the according nd2 image (that matches the droplet csv file) and the function `create_dataset` in `utils/droplet_retreiver.py` which should be documented.
 This droplet dataset will give you a sort of list of all droplets together with cut out image patches where the droplet is located.
-The cells dataset can then be used to augment the dataset (has to be done manually right now) as it allows to read off the intensity and persistency scores (and also the locations) of all the signal-spikes that have been detected in the various droplets, which can then be used to improve the accuracy of similarity scores.
+
+2. The cells dataset can then be used to augment the droplet dataset (has to be done manually right now) as it allows to read off the intensity and persistency scores (and also the locations) of all the signal-spikes that have been detected in the various droplets, which can then be used to improve the accuracy of similarity scores.
 The "intensity score" of the cells is related to the "height" of the spike in the DAPI channel, relative to the background noise.
-On the other hand, the "persistency score" is related to how "wide" the detected peaks are. The two scores will in general be reasonably positively correlated but there are cases where one can be big and the other one small and vice versa.
-IMPORTANT: The "persistency score" is not available in the legacy dataset.
+In detail, the score measures how high the intensity of the peak is, and the units are 10 * standrad deviation of the estimated noise.
+On the other hand, the "persistency score" is related to how "wide" the detected peaks are.
+The persistence score computes the average distance in pixels from the peak location, to the 10 closest pixels which are categorized as "noise". 
+I.e., it is an estimate of the margin between the peak center and the closest point "where the noise begins".
+In the legacy dataset, the scores were squashed between 0 and 1 to make it a bit more scale invariant but I found that the loss of precision was significant when we actually want to work with
+the raw / unsquashed measurements. For this reason, in the new datasets, the scores are not between 0 and 1 anymore, but rather 0 and infinity.
+The intensity and persistence scores will in general be reasonably positively correlated but there are cases where one can be big and the other one small and vice versa.
+IMPORTANT: The "persistency score" is not available in the legacy dataset. 
+IMPORTANT: The scores in the new datasets are not squashed between 0 and 1 and are between 0 and infinity instead. 
 
 
 ### Droplet detection

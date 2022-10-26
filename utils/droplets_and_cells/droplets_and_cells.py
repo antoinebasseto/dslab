@@ -47,7 +47,14 @@ def generate_output(input_string, output_string_droplets, output_string_cells, r
 
         circles_in_frame = manual_circle_hough(bf_channel, refine)
 
+        # cells_mask, cells_intensities, cells_persistencies, squashed_cells_intensities, squashed_cells_persistencies = cell_detector(dapi_channel, bf_channel, circles_in_frame)
         cells_mask, cells_intensities, cells_persistencies = cell_detector(dapi_channel, bf_channel, circles_in_frame)
+
+        intensities_vector = cells_intensities[cells_mask == 1.0]
+        persistence_vector = cells_persistencies[cells_mask == 1.0]
+
+        intens_thresh = np.quantile(intensities_vector, 0.2)
+        presis_thresh = np.quantile(persistence_vector, 0.2)
 
         visualization_channel = cv.morphologyEx(cells_mask, cv.MORPH_DILATE, np.ones((3,3)))
 
@@ -65,12 +72,16 @@ def generate_output(input_string, output_string_droplets, output_string_cells, r
             local_cells_mask = cells_mask[patch_x[0]: patch_x[1], patch_y[0]: patch_y[1]]
             local_cells_intens = cells_intensities[patch_x[0]: patch_x[1], patch_y[0]: patch_y[1]]
             local_cells_pers = cells_persistencies[patch_x[0]: patch_x[1], patch_y[0]: patch_y[1]]
+            # local_squashed_cells_intens = squashed_cells_intensities[patch_x[0]: patch_x[1], patch_y[0]: patch_y[1]]
+            # local_squashed_cells_pers = squashed_cells_persistencies[patch_x[0]: patch_x[1], patch_y[0]: patch_y[1]]
             local_mask = np.zeros(local_cells_mask.shape)
             center_in_patch = center - np.asarray([max(int(center[0]) - radius - 2, 0), max(int(center[1]) - radius - 2, 0)])
             cv.circle(local_mask, np.flip(center_in_patch), radius, 1.0 , -1)
             local_cells_mask = local_cells_mask * local_mask
             local_cells_intens = local_cells_intens * local_mask
             local_cells_pers = local_cells_pers * local_mask
+            # local_squashed_cells_intens = local_squashed_cells_intens * local_mask
+            # local_squashed_cells_pers = local_squashed_cells_pers * local_mask
             # local_bf = bf_channel[patch_x[0]: patch_x[1], patch_y[0]: patch_y[1]]
             # local_bf = local_bf / local_bf.max()
             # cv.circle(local_bf, np.flip(center_in_patch), radius, 1.0 , 1)
@@ -80,13 +91,19 @@ def generate_output(input_string, output_string_droplets, output_string_cells, r
 
         
 
-            nr_cells_estimated = np.sum(np.logical_and((local_cells_pers > 0.5), (local_cells_intens > 0.5)))
+            nr_cells_estimated = np.sum(np.logical_and((local_cells_pers > presis_thresh), (local_cells_intens > intens_thresh)))
             cv.circle(visualization_channel, np.flip(center), radius, 1.0, 1)
             droplets.append({"droplet_id": id, "frame": frame_nr, "center_row": circ[0], "center_col": circ[1], "radius": circ[2], "nr_cells": nr_cells_estimated})
             cell_coords = np.transpose(np.asarray(np.where(local_cells_mask != 0.0)))
             for coord in cell_coords:
                 global_center = coord + np.asarray([max(int(center[0]) - radius - 2, 0), max(int(center[1]) - radius - 2, 0)])
-                cells_dict.append({"cell_id": cell_id_counter, "droplet_id": id, "frame": frame_nr, "center_row": global_center[0], "center_col": global_center[1], "intensity_score": local_cells_intens[coord[0], coord[1]], "persistence_score": local_cells_pers[coord[0], coord[1]]})
+                cells_dict.append({"cell_id": cell_id_counter,
+                 "droplet_id": id,
+                  "frame": frame_nr,
+                   "center_row": global_center[0],
+                    "center_col": global_center[1],
+                     "intensity_score": local_cells_intens[coord[0], coord[1]],
+                      "persistence_score": local_cells_pers[coord[0], coord[1]]})
                 cell_id_counter = cell_id_counter + 1
         if optional_output:
             to_display = np.float32(np.transpose(np.asarray([visualization_channel * 1, (bf_channel - bf_channel.min()) / (bf_channel.max() - bf_channel.min()), 1.0 * (dapi_channel - dapi_channel.min()) / (dapi_channel.max() - dapi_channel.min())]), [1, 2, 0]))
