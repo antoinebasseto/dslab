@@ -21,11 +21,22 @@ repository.
 
 ### Datasets
 
-1. Currently, there is only one image (small movement 1) for which we have detected droplets. The dataset is in `utils/droplets_and_cells/finished_outputs/smallMovement1_droplets_idtest1.csv`. From this csv file which only contains droplet locations etc, a dataset can be created by using the according nd2 image and the function `create_dataset` in `utils/droplet_retreiver.py` which should be documented.
+1. Currently, we have 3 images (small movement 1, 2, and 3) for which we have detected droplets and cells. The datasets are in `utils/droplets_and_cells/finished_outputs`. In there you will find the csv tables for both droplets and cells for all three images mentioned above. Additionally, you can also find the legacy dataset for the image "small movement 1" which has a `legacy` at the end of its name.
+To create a "drolet dataset" from these csv files, one needs to use the according nd2 image (that matches the droplet csv file) and the function `create_dataset` in `utils/droplet_retreiver.py` which should be documented.
+This droplet dataset will give you a sort of list of all droplets together with cut out image patches where the droplet is located.
+The cells dataset can then be used to augment the dataset (has to be done manually right now) as it allows to read off the intensity and persistency scores (and also the locations) of all the signal-spikes that have been detected in the various droplets, which can then be used to improve the accuracy of similarity scores.
+The "intensity score" of the cells is related to the "height" of the spike in the DAPI channel, relative to the background noise.
+On the other hand, the "persistency score" is related to how "wide" the detected peaks are. The two scores will in general be reasonably positively correlated but there are cases where one can be big and the other one small and vice versa.
+IMPORTANT: The "persistency score" is not available in the legacy dataset.
+
 
 ### Droplet detection
 
-1. Droplet detection can be performed by executing `utils/droplets_and_cells/droplets_and_cells.py`. It will also detect cells but the scaling of the intensities is a bit off so it currently works only for the small movement 1 image. In other cases, cells do get detected but the intensity histograms across multiple images do not match.
+1. Droplet detection can be performed by executing `utils/droplets_and_cells/droplets_and_cells.py`. 
+This function will also detect cells. It will measure peaks in the DAPI channel to find possible cells. Not all significant peaks will however be counted towards the "nr_cells" column in the droplet dataset. 
+Only signals that surpass a certain threshold will be counted towards the "nr_cells" columns in the `droplets.csv` dataset. 
+However, all detected signifcant peaks will be outputted to the `cells.csv` dataset. 
+So combining the "cells" and "droplets" datasets is recommended as they complement each other.
 
 ## Training
 
