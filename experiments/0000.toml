@@ -3,8 +3,9 @@
 [config]
 model = "ConvAE"
 learning_rate = 0.1
-train_dataset = 'data/MNIST/train'
-val_dataset = 'data/MNIST/test'
+train_dataset = '../utils/droplets_and_cells/finished_outputs/smallMovement1_droplets_idtest1.csv'
+val_dataset = '../utils/droplets_and_cells/finished_outputs/smallMovement1_droplets_idtest1.csv'
+num_frames = 8
 img_size = [3, 28, 28]
 loss = 'MSE'
 epochs = 10

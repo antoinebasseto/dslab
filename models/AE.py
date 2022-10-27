@@ -136,7 +136,7 @@ class AutoEncoder(nn.Module):
         return x
 
 
-class DeepRanking():
+class AE():
     def __init__(self, config):
         self.config = config
         self.step = 1

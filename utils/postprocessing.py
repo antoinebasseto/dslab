@@ -7,13 +7,9 @@ from PIL import Image
 from sklearn.neighbors import NearestNeighbors
 import torchvision.transforms as T
 
-def load_image_tensor(image_path, device):
-    """
-    Loads a given image to device.
-    Args:
-    image_path: path to image to be loaded.
-    device: "cuda" or "cpu"
-    """
+
+def load_image_tensor(img_id, caller):
+    image_path = f"{caller.config['train_dataset']}/img_{img_id}"
     image_tensor = T.ToTensor()(Image.open(image_path))
     image_tensor = image_tensor.unsqueeze(0)
     # print(image_tensor.shape)
@@ -21,29 +17,19 @@ def load_image_tensor(image_path, device):
     return image_tensor
 
 
-def compute_similar_images(image_path, num_images, model, embedding, device):
-    """
-    Given an image and number of similar images to generate.
-    Returns the num_images closest neares images.
-    Args:
-    image_path: Path to image whose similar images are to be found.
-    num_images: Number of similar images to find.
-    embedding : A (num_images, embedding_dim) Embedding of images learnt from auto-encoder.
-    device : "cuda" or "cpu" device.
-    """
-
-    image_tensor = load_image_tensor(image_path, device)
+def compute_similar_images(img_id, embedding, caller):
+    image_tensor = load_image_tensor(img_id)
     # image_tensor = image_tensor.to(device)
 
     with torch.no_grad():
-        image_embedding = model.encoder(image_tensor).cpu().detach().numpy()
+        image_embedding = caller.model.encoder(image_tensor).cpu().detach().numpy()
 
     # print(image_embedding.shape)
 
     flattened_embedding = image_embedding.reshape((image_embedding.shape[0], -1))
     # print(flattened_embedding.shape)
 
-    knn = NearestNeighbors(n_neighbors=num_images, metric="cosine")
+    knn = NearestNeighbors(n_neighbors=caller.config["num_images"], metric="cosine")
     knn.fit(embedding)
 
     _, indices = knn.kneighbors(flattened_embedding)
@@ -52,13 +38,7 @@ def compute_similar_images(image_path, num_images, model, embedding, device):
     return indices_list
 
 
-def plot_similar_images(indices_list, config):
-    """
-    Plots images that are similar to indices obtained from computing simliar images.
-    Args:
-    indices_list : List of List of indexes. E.g. [[1, 2, 3]]
-    """
-
+def plot_similar_images(indices_list, caller):
     indices = indices_list[0]
     for index in indices:
         if index == 0:
@@ -66,7 +46,7 @@ def plot_similar_images(indices_list, config):
             pass
         else:
             img_name = str(index - 1) + ".jpg"
-            img_path = os.path.join(config["train_dataset"]+ img_name)
+            img_path = os.path.join(caller.config["train_dataset"] + img_name)
             # print(img_path)
             img = Image.open(img_path).convert("RGB")
             plt.imshow(img)

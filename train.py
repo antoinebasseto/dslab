@@ -7,7 +7,7 @@ import toml
 import logging
 import torch
 
-from models.AE import DeepRanking
+from models.AE import AE
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
 EXPERIMENTS_PATH = Path(PROJECT_PATH / "experiments")
@@ -68,7 +68,7 @@ def main() -> None:
 
     if config['model'] == "ConvAE":
         if "checkpoint" in config:
-            model = DeepRanking(config)
+            model = AE(config)
             checkpoint_path = config["checkpoint"]
             checkpoint = torch.load(checkpoint_path, map_location=model.device)
             model.model.load_state_dict(checkpoint['model_state_dict'])
@@ -76,7 +76,7 @@ def main() -> None:
             model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             print("loaded checkpoint", checkpoint_path)
         else:
-            model = DeepRanking(config)
+            model = AE(config)
     else:
         raise Exception(f"Unknown model {config['model']}")
     logging.info("Training model...")

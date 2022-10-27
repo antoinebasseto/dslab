@@ -14,6 +14,7 @@ from torch.utils.data import Dataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+
 def np_to_tensor(x, device):
     if device == 'cpu':
         return torch.from_numpy(x).cpu()
@@ -21,8 +22,8 @@ def np_to_tensor(x, device):
         return torch.from_numpy(x).contigious().pin_memory().to(device=device, non_blocking=True)
 
 
-def create_embeddings(model, dataloader, caller):
-    model.encoder.eval()
+def create_embeddings(dataloader, caller):
+    caller.model.encoder.eval()
     embedding = torch.randn(caller.config["img_shape"])
 
     with torch.no_grad():
@@ -30,7 +31,7 @@ def create_embeddings(model, dataloader, caller):
         pbar = tqdm(dataloader)
         for train_img, target_img in pbar:
             train_img = train_img.to(caller.device)
-            enc_output = model.encoder(train_img).cpu()
+            enc_output = caller.model.encoder(train_img).cpu()
             embedding = torch.cat((embedding, enc_output), 0)
 
     return embedding
