@@ -10,7 +10,7 @@ repository.
 
 ### Software
 
-1. At the moment, a basic environment is given in `utils/env_prefixless.yml` and can be installed by running
+1. PLEASE READ THE WHOLE SECTION BEFORE EXECUTING ANYTHING. At the moment, a basic environment is given in `utils/env_prefixless.yml` and can be installed by running. 
     ```
     conda env create -f env_prefixless.yml
    ```
