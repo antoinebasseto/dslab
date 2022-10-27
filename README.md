@@ -10,10 +10,17 @@ repository.
 
 ### Software
 
-1. At the moment, a basic environment is given in `utils/droplets_and_cells/droplets_and_cells_environment.yml` and can be installed by running
+1. At the moment, a basic environment is given in `utils/env_prefixless.yml` and can be installed by running
     ```
-    conda env create -f environment.yml
+    conda env create -f env_prefixless.yml
    ```
+   As far as I understand, this will install the environment in the default conda/miniconda envs directory.
+   To install the env in a specific location, use 
+   ```
+    conda env create --prefix <path to desired directory> -f env_prefixless.yml
+   ```
+
+   If you are on MacOS and using homebrew, and have installed miniconda over homebrew, you probably want / need to change the prefix to point to the miniconda directory inside the homebrew filespace. To that end, you may want to try and use `utils/env_brewprefix.yml` which already contains a prefix that should point to the correct location within the homebrew system so you do not have to pass a `--prefix` option when creating the conda env. If you use conda inside homebrew on a mac, you will also probably need to execute python via the `/opt/homebrew/Caskroom/miniconda/base/envs/<env name here (should be "dsl" if everything goes right)>/bin/python3` command if you do not change the default python path (which is not recommeneded as python is already installed on the mac and the system depends on that installation).
 
 ### Images
 
