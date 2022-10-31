@@ -46,6 +46,21 @@ IMPORTANT: The scores in the new datasets are not squashed between 0 and 1 and a
 3. To get the combined information of the cells and droplets dataset (ie, get additional information about all significant peaks in each droplet), you can use `create_dataset_cell_enhanced` in `utils/droplet_retreiver.py`. This function will give the same output as the `create_dataset` function, except that additonally, in each entry corresponding to a droplet and frame in the returned dataset, there will be an additional column "cell_signals" which is a pandas dataframe (I think) which contains all information about all detected peaks in the corresponding droplet and frame. So basically each entry in the returned dataset contains a column which is again a dataframe which contains significant spikes in the DAPI channel. This nested dataframe has multiple columns telling you various scores about the detected peaks, their locations and their IDs.
 
 
+### Visualization
+
+1. Use the `visualizer.py` script in the `utils` directory. The function inputs are documented.
+
+2. How to use it: The visualizer requires the path to the nd2 image, the path to the droplets table (which is associated to the nd2 image) and the path to the pairing table (which is associated to the droplet table). With just these inputs, it will compute trajectories and display the brightfield images of the different frames with an overlay showing boundingboxes, number of cells, trajectory IDs and lines displaying the movement to the next frame. lastly, it will also show an image with the stitched-together trajectories over all frames. Without further options, the whole image is processed (can be slow)
+
+3. How to use it 2: Per se, the script will only display the images + overlays, and not actually store them, and it requires user input to cycle through the various images. CHECK THE TERMINAL when executing the script, it tells you what commands to use to cycle through the images. Especially, the key 'p' can be used to take a photo of the currently displayed image, if you whish to do so. The visualizer has functionality for manually adjusting total brightness and the brightness of the different channels.
+
+4. OPTIONS: The script has options to: Specify a region of interest which you want to focus on by specifying upper left and bottom right corner of the window of interest. This can speed up the script. It has the option to change the output path. By default, outputs are written into the results directory. It has the option to pass an id (string), the default id is "tmp". It has the option to additionally store the droplet table, augmented with the trajectory IDs computed from the pairing table. If the droplet table given to the script already has a trajectory_id column, the pairing table is ignored and the trajectory IDs from the droplet table are used. However, typically you will need the pairing table.
+
+5. Example: `visualizer.py "<path to raw images>/smallMovement1.nd2" "droplets_and_cells/finished_outputs/smallMovement1_droplets.csv" --pairingpath "droplets_and_cells/finished_outputs/smallMovement1_pairings_simpleNN.csv" --width 1000 --height 1000 --row 1000 --col 1000 --experimentid "idtest" --returntrajectories True`
+
+
+
+
 
 
 ### Droplet detection
