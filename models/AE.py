@@ -17,59 +17,20 @@ class ConvEncoder(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.img_size = config["img_size"][0]
-        self.conv1 = nn.Conv2d(self.img_size, 16, (2, 2))
 
-        self.relu1 = nn.ReLU(inplace=True)
-        self.maxpool1 = nn.MaxPool2d((2, 2))
+        layers = []
+        prev_channels = self.img_size
 
-        self.conv2 = nn.Conv2d(16, 32, (2, 2))
-        self.relu2 = nn.ReLU(inplace=True)
-        self.maxpool2 = nn.MaxPool2d((2, 2))
+        for n_channels in config["conv_layers"]:
+            layers += [nn.Conv2d(prev_channels, n_channels, (2,2))]
+            layers += [nn.MaxPool2d(2,2)]
+            layers += [nn.ReLU(inplace=True)]
+            prev_channels = n_channels
+        self.layers = nn.Sequential(*layers)
 
-        self.conv3 = nn.Conv2d(32, 64, (2, 2))
-        self.relu3 = nn.ReLU(inplace=True)
-        self.maxpool3 = nn.MaxPool2d((2, 2))
-
-        self.conv4 = nn.Conv2d(64, 128, (2, 2))
-        self.relu4 = nn.ReLU(inplace=True)
-        self.maxpool4 = nn.MaxPool2d((2, 2))
-
-        self.conv5 = nn.Conv2d(128, 256, (2, 2))
-        self.relu5 = nn.ReLU(inplace=True)
-        self.maxpool5 = nn.MaxPool2d((2, 2))
 
     def forward(self, x):
-        # Downscale the image with conv maxpool etc.
-        #print("1", x.shape)
-        x = self.conv1(x)
-        x = self.relu1(x)
-        #x = self.maxpool1(x)
-
-        #print("2", x.shape)
-
-        x = self.conv2(x)
-        x = self.relu2(x)
-        #x = self.maxpool2(x)
-
-        #print("3: ",x.shape)
-
-        x = self.conv3(x)
-        x = self.relu3(x)
-        #x = self.maxpool3(x)
-
-        #print("4", x.shape)
-
-        #x = self.conv4(x)
-        #x = self.relu4(x)
-        #x = self.maxpool4(x)
-
-        #print("5", x.shape)
-
-        #x = self.conv5(x)
-        #x = self.relu5(x)
-        #x = self.maxpool5(x)
-
-        #print("6: ",x.shape)
+        x = self.layers(x)
         return x
 
 
@@ -79,48 +40,24 @@ class ConvDecoder(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.img_size = config["img_size"][0]
-        self.deconv1 = nn.ConvTranspose2d(256, 128, (2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
-        self.relu1 = nn.ReLU(inplace=True)
+        layers = []
+        prev_channels = 0
 
-        self.deconv2 = nn.ConvTranspose2d(128, 64, (2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
-        self.relu2 = nn.ReLU(inplace=True)
+        for i in range(len(config["conv_layers"])-1, 0, -1):
+            layers += [nn.Conv2d(config["conv_layers"][i], config["conv_layers"][i-1], (2,2))]
+            layers += [nn.UpsamplingBilinear2d(2)]
+            layers += [nn.ReLU(inplace=True)]
+            prev_channels = config["conv_layers"][i-1]
 
-        self.deconv3 = nn.ConvTranspose2d(64, 32, (2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
-        self.relu3 = nn.ReLU(inplace=True)
+        layers += [nn.Conv2d(prev_channels, self.img_size, (2,2))]
+        layers += [nn.ReLU(inplace=True)]
 
-        self.deconv4 = nn.ConvTranspose2d(32, 16, (2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
-        self.relu4 = nn.ReLU(inplace=True)
-
-        self.deconv5 = nn.ConvTranspose2d(16, self.img_size, (2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
-        self.relu5 = nn.ReLU(inplace=True)
+        self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        #print("1: ",x.shape)
-        #x = self.deconv1(x)
-        #x = self.relu1(x)
-        #print("1: ",x.shape)
-
-        #x = self.deconv2(x)
-        #x = self.relu2(x)
-        #print("1: ", x.shape)
-
-        x = self.deconv3(x)
-        x = self.relu3(x)
-        #print("1: ",x.shape)
-
-        x = self.deconv4(x)
-        x = self.relu4(x)
-        #print("1: ",x.shape)
-
-        x = self.deconv5(x)
-        x = self.relu5(x)
-        #print("1: ",x.shape)
+        x = self.layers(x)
         return x
+
 
 
 class AutoEncoder(nn.Module):
@@ -153,7 +90,8 @@ class AE():
         }, path)
 
     def train(self):
-        transforms = T.Compose([T.ToTensor()])
+        #transforms = T.Compose([T.ToTensor()])
+        transforms = None
         train_dataset = FolderDataset(self.config["train_dataset"], transforms)
         val_dataset = FolderDataset(self.config["val_dataset"], transforms)
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)

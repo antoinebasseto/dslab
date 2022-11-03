@@ -8,6 +8,7 @@ import logging
 import torch
 
 from models.AE import AE
+from utils.models_common import create_dataset_images
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
 EXPERIMENTS_PATH = Path(PROJECT_PATH / "experiments")
@@ -65,6 +66,10 @@ def main() -> None:
 
     logging.basicConfig(filename=str(experiment_dir / 'output.log'), level=logging.INFO)
     logging.getLogger().addHandler(logging.StreamHandler())
+
+    #if create_data set to true, config file should include a droplet table path and a path to the image (nd2)
+    if config['create_data']:
+            create_dataset_images(args.experiment, PROJECT_PATH, config["image_path"], config["droplet_table_path"])
 
     if config['model'] == "ConvAE":
         if "checkpoint" in config:

@@ -8,8 +8,9 @@ from tqdm import tqdm
 import logging
 import psutil
 from torch.utils.tensorboard import SummaryWriter
+from utils.droplet_retreiver import create_dataset, resize_patch
 import numpy as np
-from sklearn.metrics import f1_score
+from sklearn.neighbors import NearestNeighbors
 from torch.utils.data import Dataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -22,8 +23,55 @@ def np_to_tensor(x, device):
         return torch.from_numpy(x).contigious().pin_memory().to(device=device, non_blocking=True)
 
 
-def create_embeddings(dataloader, caller):
-    caller.model.encoder.eval()
+
+def load_image_tensor(img_id, caller):
+    image_path = f"{caller.config['train_dataset']}/img_{img_id}"
+    image_tensor = T.ToTensor()(Image.open(image_path))
+    image_tensor = image_tensor.unsqueeze(0)
+    # print(image_tensor.shape)
+    # input_images = image_tensor.to(device)
+    return image_tensor
+
+
+def compute_similar_images(img_id, embedding, caller, model):
+    image_tensor = load_image_tensor(img_id)
+    # image_tensor = image_tensor.to(device)
+
+    with torch.no_grad():
+        image_embedding = model.encoder(image_tensor).cpu().detach().numpy()
+
+    # print(image_embedding.shape)
+
+    flattened_embedding = image_embedding.reshape((image_embedding.shape[0], -1))
+    # print(flattened_embedding.shape)
+
+    knn = NearestNeighbors(n_neighbors=caller.config["num_images"], metric="cosine")
+    knn.fit(embedding)
+
+    _, indices = knn.kneighbors(flattened_embedding)
+    indices_list = indices.tolist()
+    # print(indices_list)
+    return indices_list
+
+
+def create_dataset_images(experiment, project_path, image_path, droplet_table_path, allFrames=False, allChannels=False,
+                          buffer=3, suppress_rest=True, suppression_slack=1, discard_boundaries=False):
+    dataset = create_dataset([0, 1, 2, 3, 4, 5, 6, 7], ['BF'], image_path, droplet_table_path, allFrames, allChannels,
+                             buffer, suppress_rest, suppression_slack, discard_boundaries)
+    DATA_PATH = os.path.join(project_path, "data")
+    EXPERIMENT_DATA_DIR = os.path.join(DATA_PATH, str(experiment))
+    try:
+        os.mkdir(EXPERIMENT_DATA_DIR)
+    except FileExistsError as _:
+        pass
+    for i in range(len(dataset)):
+        for j in range(len(dataset[i])):
+            patch = resize_patch(dataset[i][j]['patch'], 100)
+            np.save(os.path.join(EXPERIMENT_DATA_DIR, str(i + 1) + str(j).zfill(4)), patch)
+
+
+def create_embeddings(dataloader, caller, model):
+    model.encoder.eval()
     embedding = torch.randn(caller.config["img_shape"])
 
     with torch.no_grad():
@@ -31,7 +79,7 @@ def create_embeddings(dataloader, caller):
         pbar = tqdm(dataloader)
         for train_img, target_img in pbar:
             train_img = train_img.to(caller.device)
-            enc_output = caller.model.encoder(train_img).cpu()
+            enc_output = model.encoder(train_img).cpu()
             embedding = torch.cat((embedding, enc_output), 0)
 
     return embedding
@@ -47,7 +95,6 @@ class FolderDataset(Dataset):
 
     def __init__(self, main_dir, transform=None):
         self.main_dir = main_dir
-        print(self.main_dir)
         self.transform = transform
         self.all_imgs = os.listdir(main_dir)
 
@@ -56,10 +103,13 @@ class FolderDataset(Dataset):
 
     def __getitem__(self, idx):
         img_loc = os.path.join(self.main_dir, self.all_imgs[idx])
-        image = Image.open(img_loc).convert("RGB")
+        image = np.load(img_loc)
+        image = image.astype(np.float32)
 
         if self.transform is not None:
             tensor_image = self.transform(image)
+        else:
+            tensor_image = torch.tensor(image)
 
         return tensor_image.to(device), tensor_image.to(device)
 
@@ -70,7 +120,7 @@ def train_(train_dataloader, eval_dataloader, loss_fn, metric_fns, caller):
     else:
         writer = Nop()
 
-    max_loss = 700000
+    max_loss = 7000009000000000000
     old_path = None
     has_validated = False
     for epoch in range(caller.config["epochs"]):  # loop over the dataset multiple times
