@@ -5,6 +5,7 @@ import torch
 import cv2
 from PIL import Image
 from tqdm import tqdm
+from sklearn.preprocessing import normalize
 import logging
 import psutil
 from torch.utils.tensorboard import SummaryWriter
@@ -12,6 +13,7 @@ from utils.droplet_retreiver import create_dataset, resize_patch
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from torch.utils.data import Dataset
+from transformers import AutoFeatureExtractor, ViTMAEModel
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -21,7 +23,6 @@ def np_to_tensor(x, device):
         return torch.from_numpy(x).cpu()
     else:
         return torch.from_numpy(x).contigious().pin_memory().to(device=device, non_blocking=True)
-
 
 
 def load_image_tensor(img_id, caller):
@@ -54,12 +55,12 @@ def compute_similar_images(img_id, embedding, caller, model):
     return indices_list
 
 
-def create_dataset_images(experiment, project_path, image_path, droplet_table_path, allFrames=False, allChannels=False,
+def create_dataset_images(video, project_path, image_path, droplet_table_path, allFrames=False, allChannels=False,
                           buffer=3, suppress_rest=True, suppression_slack=1, discard_boundaries=False):
-    dataset = create_dataset([0, 1, 2, 3, 4, 5, 6, 7], ['BF'], image_path, droplet_table_path, allFrames, allChannels,
+    dataset = create_dataset([0, 1, 2, 3, 4, 5, 6, 7], ['BF', 'DAPI'], image_path, droplet_table_path, allFrames, allChannels,
                              buffer, suppress_rest, suppression_slack, discard_boundaries)
     DATA_PATH = os.path.join(project_path, "data")
-    EXPERIMENT_DATA_DIR = os.path.join(DATA_PATH, str(experiment))
+    EXPERIMENT_DATA_DIR = os.path.join(DATA_PATH, str(video))
     try:
         os.mkdir(EXPERIMENT_DATA_DIR)
     except FileExistsError as _:
@@ -68,6 +69,12 @@ def create_dataset_images(experiment, project_path, image_path, droplet_table_pa
         for j in range(len(dataset[i])):
             patch = resize_patch(dataset[i][j]['patch'], 100)
             np.save(os.path.join(EXPERIMENT_DATA_DIR, str(i + 1) + str(j).zfill(4)), patch)
+
+
+def normalized(a, axis=-1, order=2):
+    l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
+    l2[l2 == 0] = 1
+    return a / np.expand_dims(l2, axis)
 
 
 def create_embeddings(dataloader, caller, model):
@@ -93,23 +100,32 @@ class Nop(object):
 
 class FolderDataset(Dataset):
 
-    def __init__(self, main_dir, transform=None):
+    def __init__(self, main_dir, transform=None, feat=False):
         self.main_dir = main_dir
         self.transform = transform
         self.all_imgs = os.listdir(main_dir)
+        self.feat = feat
 
     def __len__(self):
         return len(self.all_imgs)
 
     def __getitem__(self, idx):
         img_loc = os.path.join(self.main_dir, self.all_imgs[idx])
-        image = np.load(img_loc)
-        image = image.astype(np.float32)
+        image = np.load(img_loc).astype(float)
+        norm_img = normalized(image)
+        # image = image.astype(np.float32)
 
         if self.transform is not None:
             tensor_image = self.transform(image)
-        else:
+        elif not self.feat:
             tensor_image = torch.tensor(image)
+
+        else:
+            feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/vit-mae-base")
+            tensor_image = feature_extractor(images = Image.fromarray(image.astype(float)*255, 'RGB'), return_tensors = 'pt')
+            #print(tensor_image.shape)
+
+        # tensor_image = torch.nn.functional.normalize(tensor_image, 1)
 
         return tensor_image.to(device), tensor_image.to(device)
 
@@ -164,6 +180,7 @@ def train_(train_dataloader, eval_dataloader, loss_fn, metric_fns, caller):
                     for k, _ in metric_fns.items():
                         metrics_val['val_' + k] = []
                     for (x, y) in tqdm(eval_dataloader, desc="validating model"):
+                        #print(caller.model(x).shape)
                         y_hat = caller.model(x).cpu()  # forward pass
                         y = y.cpu()
                         loss = loss_fn(y_hat, y)
@@ -197,3 +214,5 @@ def train_(train_dataloader, eval_dataloader, loss_fn, metric_fns, caller):
     caller.save_model()
 
     logging.info('Finished Training')
+
+

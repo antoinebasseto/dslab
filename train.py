@@ -8,6 +8,7 @@ import logging
 import torch
 
 from models.AE import AE
+from models.ViTMAE import ViTMAE
 from utils.models_common import create_dataset_images
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
@@ -82,6 +83,17 @@ def main() -> None:
             print("loaded checkpoint", checkpoint_path)
         else:
             model = AE(config)
+    elif config['model'] == "VitMae":
+        if "checkpoint" in config:
+            model = ViTMAE(config)
+            checkpoint_path = config["checkpoint"]
+            checkpoint = torch.load(checkpoint_path, map_location=model.device)
+            model.model.load_state_dict(checkpoint['model_state_dict'])
+            model.step = checkpoint['step']
+            model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            print("loaded checkpoint", checkpoint_path)
+        else:
+            model = ViTMAE(config)
     else:
         raise Exception(f"Unknown model {config['model']}")
     logging.info("Training model...")

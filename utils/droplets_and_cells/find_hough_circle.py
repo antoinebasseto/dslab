@@ -114,11 +114,21 @@ def circle_RANSAC3(points_img, edge_img, rmin, rmax):
   # print(coords)
 
   nr_of_samples = 500
-
   random_idxs = np.random.randint(0, nnz, size = (3, nr_of_samples), dtype = int)
-  random_idxs[1, :] =  np.clip(random_idxs[1, :] + 1.0 * (random_idxs[1, :] >= random_idxs[0, :]), 0, nnz - 1)
-  random_idxs[2, :] =  np.clip(random_idxs[2, :] + 1.0 * (random_idxs[2, :] >= np.max(random_idxs[0: 2, :], axis = 0)), 0, nnz - 1)
-  random_idxs[2, :] =  np.clip(random_idxs[2, :] + 1.0 * np.logical_or(random_idxs[2, :] >= random_idxs[0, :], random_idxs[2, :] >= random_idxs[1, :]), 0, nnz - 1)
+  random_idxs[1, :] = np.random.randint(0, nnz - 1, size = nr_of_samples, dtype = int)
+  random_idxs[2, :] = np.random.randint(0, nnz - 2, size = nr_of_samples, dtype = int)
+
+  random_idxs[1, :] =  random_idxs[1, :] + 1 * (random_idxs[1, :] >= random_idxs[0, :])
+  random_idxs[2, :] =  random_idxs[2, :] + 1 * (random_idxs[2, :] >= np.min(random_idxs[0: 2, :], axis = 0)) 
+  random_idxs[2, :] =  random_idxs[2, :] + 1 * (random_idxs[2, :] >= np.max(random_idxs[0: 2, :], axis = 0))
+  # random_idxs[2, :] =  np.clip(random_idxs[2, :] + (random_idxs[2, :] >= np.max(random_idxs[0: 2, :], axis = 0)), 0, nnz - 1)
+  # random_idxs[1, :] = np.mod(random_idxs[1, :], nnz)
+  # random_idxs[2, :] = np.mod(random_idxs[2, :], nnz)
+  
+  # assert(np.all(random_idxs[0, :] != random_idxs[1, :]))
+  # assert(np.all(random_idxs[0, :] != random_idxs[2, :]))
+  # assert(np.all(random_idxs[1, :] != random_idxs[2, :]))
+
 
   coords1 = coords[random_idxs[0, :]]
   coords2 = coords[random_idxs[1, :]]
@@ -133,9 +143,11 @@ def circle_RANSAC3(points_img, edge_img, rmin, rmax):
 
   line_directions1 = coords1 - coords2
   line_directions1 = np.transpose(np.asarray([line_directions1[:, 1], -line_directions1[:, 0]]))
+  # assert(np.all(np.linalg.norm(line_directions1, axis = 1)[:, None] != 0.0))
   line_directions1 = line_directions1 /  np.linalg.norm(line_directions1, axis = 1)[:, None]
   line_directions2 = coords2 - coords3
   line_directions2 = np.transpose(np.asarray([line_directions2[:, 1], -line_directions2[:, 0]]))
+  # assert(np.all(np.linalg.norm(line_directions2, axis = 1)[:, None] != 0.0))
   line_directions2 = line_directions2 /  np.linalg.norm(line_directions2, axis = 1)[:, None]
 
   sample_viability = (np.abs(np.sum(line_directions1 * line_directions2, axis = 1)) <= 0.8)

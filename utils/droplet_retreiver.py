@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 import pandas as pd
-from raw_image_reader import get_image_as_ndarray
+from utils.raw_image_reader import get_image_as_ndarray
 
 
 def get_patch(image, center_row, center_col, radius, buffer=3, suppress_rest=True, suppression_slack=1,

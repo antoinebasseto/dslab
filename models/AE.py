@@ -7,6 +7,7 @@ from utils.models_common import FolderDataset, np_to_tensor, train_
 
 import torch
 import torch.nn as nn
+import torchvision
 import torchvision.transforms as T
 
 PROJECT_PATH = Path(os.path.dirname(os.path.dirname(__file__)))
@@ -21,16 +22,18 @@ class ConvEncoder(nn.Module):
         layers = []
         prev_channels = self.img_size
 
-        for n_channels in config["conv_layers"]:
-            layers += [nn.Conv2d(prev_channels, n_channels, (2,2))]
-            layers += [nn.MaxPool2d(2,2)]
+        for i, n_channels in enumerate(config["conv_layers"]):
+            layers += [nn.Conv2d(prev_channels, n_channels, (3, 3), padding=(1, 1))]
             layers += [nn.ReLU(inplace=True)]
+            if i%1==0:
+                layers += [nn.MaxPool2d(2,2)]
             prev_channels = n_channels
         self.layers = nn.Sequential(*layers)
 
 
     def forward(self, x):
         x = self.layers(x)
+        #print(x.shape)
         return x
 
 
@@ -44,18 +47,21 @@ class ConvDecoder(nn.Module):
         prev_channels = 0
 
         for i in range(len(config["conv_layers"])-1, 0, -1):
-            layers += [nn.Conv2d(config["conv_layers"][i], config["conv_layers"][i-1], (2,2))]
-            layers += [nn.UpsamplingBilinear2d(2)]
+            if i >= 2:
+                layers += [nn.ConvTranspose2d(config["conv_layers"][i], config["conv_layers"][i-1], (2,2), stride=(2, 2))]
+            else:
+                layers += [nn.ConvTranspose2d(config["conv_layers"][i], config["conv_layers"][i-1], (2,2), stride=(2, 2), output_padding=1)]
             layers += [nn.ReLU(inplace=True)]
             prev_channels = config["conv_layers"][i-1]
-
-        layers += [nn.Conv2d(prev_channels, self.img_size, (2,2))]
+        layers += [nn.ConvTranspose2d(prev_channels, self.img_size, (2,2), stride=(2, 2), output_padding=1, dilation=2)]
         layers += [nn.ReLU(inplace=True)]
 
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
+        #print("Decoder Start", x.shape)
         x = self.layers(x)
+        #print("Decoder End", x.shape)
         return x
 
 
@@ -79,6 +85,7 @@ class AE():
         self.step = 1
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'  # automatically select device
         self.model = AutoEncoder(config).to(self.device)
+        print(self.model)
         self.optimizer = torch.optim.Adam(self.model.parameters())
 
     def save_model(self, appendix=''):
