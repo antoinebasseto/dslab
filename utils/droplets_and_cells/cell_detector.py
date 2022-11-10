@@ -1,8 +1,8 @@
 import cv2 as cv
 import numpy as np
 
-from cell_finding import cell_finding
-from cell_finding import cell_finding2
+from droplets_and_cells.cell_finding import cell_finding
+from droplets_and_cells.cell_finding import cell_finding2
 
 def cell_detector(dapi_channel, bf_channel, detected_droplets):
 

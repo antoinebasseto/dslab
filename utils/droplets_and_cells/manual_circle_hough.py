@@ -1,8 +1,7 @@
-from find_hough_circle import circle_RANSAC
-from find_hough_circle import circle_RANSAC3
+from droplets_and_cells.find_hough_circle import circle_RANSAC3
 import cv2 as cv
 import numpy as np
-from nms import canny_nms
+from droplets_and_cells.nms import canny_nms
 from tqdm import tqdm
 
 # Transforms float32 images to uint8 images. Assumes the range of the input image is correct
