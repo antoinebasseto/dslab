@@ -182,6 +182,8 @@ def resize_patch(patch, diameter):
 #   So, everything that is farther away than radius + suppression_slack from the droplet center, gets suppressed
 # discard_boundaries indicates whether to not cut out patches that are not 100% included in the image. If set to false, regions of the patch that exceed image boundaries are filled with zeros.
 #   If set to true, droplets whose image patches are not contained in the image get a patch of 0x0 pixels.
+# median_filter_preprocess is a lag that if set true, will do some basic median sharpening on the image. Typically this preproccing step seems decent at removing a background whose intensity varies.
+#   This is not meant to be a good solution but it needs to be done before the droplets are cut out.
 # returns a list with one element for each frame. Each element is again a list of dicts / dataframes (not sure) 
 #   which contains all the data about the droplet plus a 'patch' which is the image patch around the droplet with according channels
 
@@ -206,26 +208,60 @@ def resize_patch(patch, diameter):
                 cv.waitKey(0)
 """
 
-def create_dataset_cell_enhanced(frames, channels, image_path, droplet_table_path, cell_table_path, allFrames = False, allChannels = False, buffer = 3, suppress_rest = True, suppression_slack = 1, discard_boundaries = False):
+def create_dataset_cell_enhanced(frames, channels, image_path, droplet_table_path, cell_table_path, allFrames = False, allChannels = False, buffer = 3, suppress_rest = True, suppression_slack = 1, discard_boundaries = False, omit_patches = False, median_filter_preprocess = False):
     droplet_table = pd.read_csv(droplet_table_path, index_col = False)
     cell_table = pd.read_csv(cell_table_path, index_col = False)
-    raw_images = get_image_as_ndarray(frames, channels, image_path, allFrames, allChannels)
-    # print(raw_images.shape)
-    new_frames = frames
-    if allFrames:
-        new_frames = range(raw_images.shape[0])
-    ans = []
-    for i, j in enumerate(new_frames):
-        droplets_in_frame = droplet_table[droplet_table['frame'] == j]
-        cells_in_frame = cell_table[cell_table['frame'] == j]
-        image_frame = raw_images[i, :, :, :]
-        frame_ans = []
-        for idx, droplet in droplets_in_frame.iterrows():
-            droplet_id = droplet['droplet_id']
-            cells_in_frame_in_droplet = (cells_in_frame[cells_in_frame['droplet_id'] == droplet_id])[['cell_id', 'center_row', 'center_col', 'intensity_score', 'persistence_score']]
-            tmp_ans = droplet
-            tmp_ans['patch'] = get_patch(image_frame, droplet['center_row'], droplet['center_col'], droplet['radius'], buffer, suppress_rest, suppression_slack, discard_boundaries)
-            tmp_ans['cell_signals'] = cells_in_frame_in_droplet
-            frame_ans.append(tmp_ans)
-        ans.append(frame_ans)
-    return ans
+    if not omit_patches:
+        raw_images = get_image_as_ndarray(frames, channels, image_path, allFrames, allChannels)
+        # print(raw_images.shape)
+        new_frames = frames
+        if allFrames:
+            new_frames = range(raw_images.shape[0])
+        ans = []
+        for i, j in enumerate(new_frames):
+            droplets_in_frame = droplet_table[droplet_table['frame'] == j]
+            cells_in_frame = cell_table[cell_table['frame'] == j]
+            image_frame = raw_images[i, :, :, :]
+            if median_filter_preprocess:
+                for ch_idx in range(image_frame.shape[0]):
+                    if (allChannels and ch_idx == 4) or ((not allChannels) and channels[ch_idx] == "BF"):
+                        ch = np.uint16(2 ** 16 - np.int32(image_frame[ch_idx, :, :]) - 1)
+                        normalized_raw_patch = np.float64(ch - ch.min()) / (ch.max() - ch.min())
+                        flatfield_normalized_raw_base = np.float64(cv.medianBlur(np.uint8(normalized_raw_patch * 255), 2 * 10 + 1) / 255.0)
+                        corrected_raw_patch = np.int64(ch) - (flatfield_normalized_raw_base * (ch.max() - ch.min()) + ch.min())
+                        corrected_raw_patch = np.uint16(np.clip(corrected_raw_patch, 0, 2 ** 16 - 1))
+                        image_frame[ch_idx, :, :] = corrected_raw_patch
+                    else:
+                        ch = image_frame[ch_idx, :, :]
+                        normalized_raw_patch = np.float64(ch - ch.min()) / (ch.max() - ch.min())
+                        flatfield_normalized_raw_base = np.float64(cv.medianBlur(np.uint8(normalized_raw_patch * 255), 2 * 10 + 1) / 255.0)
+                        corrected_raw_patch = np.int64(ch) - (flatfield_normalized_raw_base * (ch.max() - ch.min()) + ch.min())
+                        corrected_raw_patch = np.uint16(np.clip(corrected_raw_patch, 0, 2 ** 16 - 1))
+                        image_frame[ch_idx, :, :] = corrected_raw_patch
+            frame_ans = []
+            for idx, droplet in droplets_in_frame.iterrows():
+                droplet_id = droplet['droplet_id']
+                cells_in_frame_in_droplet = (cells_in_frame[cells_in_frame['droplet_id'] == droplet_id])[['cell_id', 'center_row', 'center_col', 'intensity_score', 'persistence_score']]
+                tmp_ans = droplet
+                tmp_ans['patch'] = get_patch(image_frame, droplet['center_row'], droplet['center_col'], droplet['radius'], buffer, suppress_rest, suppression_slack, discard_boundaries)
+                tmp_ans['cell_signals'] = cells_in_frame_in_droplet
+                frame_ans.append(tmp_ans)
+            ans.append(frame_ans)
+        return ans
+    else:
+        new_frames = frames
+        if allFrames:
+            new_frames = range(np.max(droplet_table['frame'].to_numpy(dtype = np.int32)) + 1)
+        ans = []
+        for i, j in enumerate(new_frames):
+            droplets_in_frame = droplet_table[droplet_table['frame'] == j]
+            cells_in_frame = cell_table[cell_table['frame'] == j]
+            frame_ans = []
+            for idx, droplet in droplets_in_frame.iterrows():
+                droplet_id = droplet['droplet_id']
+                cells_in_frame_in_droplet = (cells_in_frame[cells_in_frame['droplet_id'] == droplet_id])[['cell_id', 'center_row', 'center_col', 'intensity_score', 'persistence_score']]
+                tmp_ans = droplet
+                tmp_ans['cell_signals'] = cells_in_frame_in_droplet
+                frame_ans.append(tmp_ans)
+            ans.append(frame_ans)
+        return ans
