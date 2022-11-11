@@ -1,11 +1,11 @@
 
 [config]
 model = "VitMae"
-create_data = true
+create_data = false
 image_path = "data/Smallmvt1.nd2"
-droplet_table_path = "utils/droplets_and_cells/finished_outputs/smallMovement1_droplets_idtest1.csv"
-train_dataset = 'data/2'
-val_dataset = 'data/2'
+droplet_table_path = "utils/droplets_and_cells/finished_outputs/smallMovement1_droplets.csv"
+train_dataset = 'data/0002'
+val_dataset = 'data/0002Val'
 num_frames = 8
 img_size = [2, 100, 100]
 conv_layers = [16, 32, 64, 128, 256]

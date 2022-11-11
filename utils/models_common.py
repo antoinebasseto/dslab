@@ -57,7 +57,7 @@ def compute_similar_images(img_id, embedding, caller, model):
 
 def create_dataset_images(video, project_path, image_path, droplet_table_path, allFrames=False, allChannels=False,
                           buffer=3, suppress_rest=True, suppression_slack=1, discard_boundaries=False):
-    dataset = create_dataset([0, 1, 2, 3, 4, 5, 6, 7], ['BF', 'DAPI'], image_path, droplet_table_path, allFrames, allChannels,
+    dataset = create_dataset([0, 1, 2, 3, 4, 5, 6, 7], ['BF', 'DAPI', 'Cy5'], image_path, droplet_table_path, allFrames, allChannels,
                              buffer, suppress_rest, suppression_slack, discard_boundaries)
     DATA_PATH = os.path.join(project_path, "data")
     EXPERIMENT_DATA_DIR = os.path.join(DATA_PATH, str(video))
@@ -67,7 +67,7 @@ def create_dataset_images(video, project_path, image_path, droplet_table_path, a
         pass
     for i in range(len(dataset)):
         for j in range(len(dataset[i])):
-            patch = resize_patch(dataset[i][j]['patch'], 100)
+            patch = resize_patch(dataset[i][j]['patch'], 224)
             np.save(os.path.join(EXPERIMENT_DATA_DIR, str(i + 1) + str(j).zfill(4)), patch)
 
 
@@ -78,7 +78,7 @@ def normalized(a, axis=-1, order=2):
 
 
 def create_embeddings(dataloader, caller, model):
-    model.encoder.eval()
+
     embedding = torch.randn(caller.config["img_shape"])
 
     with torch.no_grad():
@@ -127,7 +127,7 @@ class FolderDataset(Dataset):
 
         # tensor_image = torch.nn.functional.normalize(tensor_image, 1)
 
-        return tensor_image.to(device), tensor_image.to(device)
+        return tensor_image.to(device, dtype=torch.float), tensor_image.to(device, torch.float)
 
 
 def train_(train_dataloader, eval_dataloader, loss_fn, metric_fns, caller):
@@ -153,8 +153,9 @@ def train_(train_dataloader, eval_dataloader, loss_fn, metric_fns, caller):
         for (x, y) in pbar:
             if has_validated:
                 caller.optimizer.zero_grad()  # zero out gradients
-                y_hat = caller.model(x)  # forward pass
-                loss = loss_fn(y_hat, y)
+                loss, y_hat, mask = caller.model(x)  # forward pass
+                y_hat = y_hat.cpu()
+                #loss = loss_fn(y_hat, y)
                 loss.backward()  # backward pass
                 caller.optimizer.step()  # optimize weights
 
@@ -181,9 +182,9 @@ def train_(train_dataloader, eval_dataloader, loss_fn, metric_fns, caller):
                         metrics_val['val_' + k] = []
                     for (x, y) in tqdm(eval_dataloader, desc="validating model"):
                         #print(caller.model(x).shape)
-                        y_hat = caller.model(x).cpu()  # forward pass
+                        loss, y_hat, mask = caller.model(x)
+                        y_hat = y_hat.cpu()# forward pass
                         y = y.cpu()
-                        loss = loss_fn(y_hat, y)
                         # print(y_hat.shape)
                         # print(y.shape)
                         # print(x.shape)
@@ -215,4 +216,10 @@ def train_(train_dataloader, eval_dataloader, loss_fn, metric_fns, caller):
 
     logging.info('Finished Training')
 
+#experiment = 2
+#project_path = ""
+#image_path = "data/Smallmvt1.nd2"
+#droplet_table_path = "utils/droplets_and_cells/finished_outputs/smallMovement1_droplets.csv"
+
+#create_dataset_images(experiment, project_path, image_path, droplet_table_path)
 
