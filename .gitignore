@@ -2,9 +2,15 @@
 results/*
 !results/.gitkeep
 
-# Images folder
-data/images/*
-!data/images/.gitkeep
+# Data
+data/01_raw/*
+data/02_preprocessed/*
+data/03_features/*
+data/04_droplet/*
+!data/01_raw/.gitkeep
+!data/02_preprocessed/.gitkeep
+!data/03_features/.gitkeep
+!data/04_droplet/.gitkeep
 
 # OS files
 .DS_Store
