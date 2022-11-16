@@ -345,8 +345,7 @@ def iterative_refinement_method (droplet_table_path, cell_table_path, image_path
 
 
 
-iterative_refinement_method("droplets_and_cells/finished_outputs/largeMovement1_droplets.csv","droplets_and_cells/finished_outputs/largeMovement1_cells.csv",
-                            "droplets_and_cells/raw_images/LargeMovement1.nd2","droplets_and_cells/finished_outputs/")
+
     
     
             
