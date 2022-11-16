@@ -50,6 +50,15 @@ def compute_droplet_statistics (droplet_entry):
         # ans['max_sig_intens'] = 0
         # ans['mean_sig_intens'] = 0
         # ans['std_sig_intens'] = 0
+    x = droplet_entry['patch'].shape[1]
+    y = droplet_entry['patch'].shape[2]
+    patch = cv.resize(droplet_entry['patch'].reshape(x, y, 2), (128, 128), interpolation=cv.INTER_CUBIC).astype(np.uint8)
+    hog = cv.HOGDescriptor()
+    vec1 = hog.compute(patch[:, :, :1])
+    #vec2 = hog.compute(patch[:, :, 1:2])
+    #ans['hog'] = np.concatenate((vec1, vec2), axis=0)
+    ans['hog'] = vec1
+
     return ans
 
 # edge_exists_mask is an n x m matrix where entry edge_exists_mask[i, j] is nonzero (or "True") iff droplet i in previous frame can be matched to droplet i in the next frame.
@@ -112,6 +121,7 @@ def iterative_refinement_method (droplet_table_path, cell_table_path, image_path
     nr_frames = len(dataset)
     feature_dataset = []
     image_dataset = []
+
     for ds in better_dataset:
         tmp1 = []
         tmp2 = np.zeros((ds.shape[0], 2, 40, 40), dtype = np.float64)
@@ -135,6 +145,7 @@ def iterative_refinement_method (droplet_table_path, cell_table_path, image_path
         tmp1 = pd.DataFrame(tmp1)
         feature_dataset.append(tmp1)
         image_dataset.append(tmp2)
+
     out = []
     for frame_nr in range(nr_frames - 1):
 
@@ -232,6 +243,8 @@ def iterative_refinement_method (droplet_table_path, cell_table_path, image_path
         validity_mask *= (dapi_corr_mat >= dapi_corr_thresh[:, None]) * 1
         # validity_mask *= (dapi_corr_mat >= 0.9) * 1
 
+
+
         intbrightdiff_mat = np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None] - feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :])
         intbrightdiff_mat /= np.sqrt(np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None]) * np.abs(feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :]))
         intbrightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
@@ -256,6 +269,23 @@ def iterative_refinement_method (droplet_table_path, cell_table_path, image_path
         # brightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
         # brightdiff_thresh = np.nanquantile(brightdiff_mat, quantile_level_matching, axis = 1)
         # validity_mask *= (brightdiff_mat <= brightdiff_thresh[:, None]) * 1
+
+
+
+        hog_mat = np.zeros((feature_dataset[this_fr].shape[0], feature_dataset[next_fr].shape[0]))
+        hog_prev = feature_dataset[this_fr]['hog'].values
+        hog_next = feature_dataset[next_fr]['hog'].values
+        for i in range(feature_dataset[this_fr].shape[0]):
+            for j in range(feature_dataset[next_fr].shape[0]):
+                hog_mat[i,j] = np.linalg.norm(hog_prev[i] - hog_next[j])
+
+
+        hog_mat[np.logical_not(within_dist_mask)] = np.nan
+        hog_thresh = np.nanquantile(hog_mat, quantile_level_matching, axis=1)
+        validity_mask *= (hog_mat <= hog_thresh[:, None]) * 1
+
+
+
         validity_mask[np.logical_not(within_dist_mask)] = 0
 
         # print(np.sum(validity_mask))
@@ -315,6 +345,8 @@ def iterative_refinement_method (droplet_table_path, cell_table_path, image_path
 
 
 
+iterative_refinement_method("droplets_and_cells/finished_outputs/largeMovement1_droplets.csv","droplets_and_cells/finished_outputs/largeMovement1_cells.csv",
+                            "droplets_and_cells/raw_images/LargeMovement1.nd2","droplets_and_cells/finished_outputs/")
     
     
             
