@@ -2,6 +2,7 @@ import numpy as np
 import cv2 as cv
 import pandas as pd
 from raw_image_reader import get_image_as_ndarray
+from tqdm.auto import tqdm
 
 def get_patch(image, center_row, center_col, radius, buffer = 3, suppress_rest = True, suppression_slack = 1, discard_boundaries = True):
     s = image.shape
@@ -253,7 +254,7 @@ def create_dataset_cell_enhanced(frames, channels, image_path, droplet_table_pat
         if allFrames:
             new_frames = range(np.max(droplet_table['frame'].to_numpy(dtype = np.int32)) + 1)
         ans = []
-        for i, j in enumerate(new_frames):
+        for i, j in tqdm(enumerate(new_frames)):
             droplets_in_frame = droplet_table[droplet_table['frame'] == j]
             cells_in_frame = cell_table[cell_table['frame'] == j]
             frame_ans = []
