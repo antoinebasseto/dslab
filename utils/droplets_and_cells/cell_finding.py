@@ -1,16 +1,10 @@
 import cv2 as cv
 import numpy as np
-from nms import nms
-from nms import nms4
-from nms import canny_nms
-from nms import grad_nms
+from droplets_and_cells.nms import nms, canny_nms
 from tqdm.auto import tqdm
 import math
 
 import sys
-
-sys.path.insert(0, '/Users/francescodadalt/Documents/ETH/Programmieren/Git Repositiories/dslab/utils')
-from droplet_retreiver import resize_patch
 
 def cell_finding (droplet_circles, raw_dapi):
     tmp_dapi = cv.GaussianBlur(raw_dapi, (3, 3), 0)

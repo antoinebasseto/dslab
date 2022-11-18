@@ -1,8 +1,8 @@
 import cv2 as cv
 import numpy as np
 
-from cell_finding import cell_finding
-from cell_finding import cell_finding2
+from droplets_and_cells.cell_finding import cell_finding
+from droplets_and_cells.cell_finding import cell_finding2
 
 # takes in the dapi channel, the bf channel and a list of detected droplets
 # returns three matrices. The first is a mask that is 1 at a location where a significant peak in the dapi channel has been found

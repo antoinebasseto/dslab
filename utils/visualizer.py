@@ -91,7 +91,7 @@ def main() -> None:
     args = parser.parse_args()
 
     row = args.row
-    col = args.row
+    col = args.col
     width = args.width
     height = args.height
     focus_lower = (height, width)
