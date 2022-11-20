@@ -5,8 +5,8 @@ import pandas as pd
 import sys, getopt
 from tqdm.auto import tqdm
 
-from cell_detector import cell_detector
-from manual_circle_hough import manual_circle_hough
+from droplets_and_cells.cell_detector import cell_detector
+from droplets_and_cells.manual_circle_hough import manual_circle_hough
 
 def get_droplet_output(bf_image, refine):
     droplet_mask, droplet_circles = manual_circle_hough(bf_image, refine)
