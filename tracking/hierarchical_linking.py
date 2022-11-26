@@ -54,8 +54,12 @@ def compute_droplet_statistics (droplet_entry):
         # ans['std_sig_intens'] = 0
     x = droplet_entry['patch'].shape[1]
     y = droplet_entry['patch'].shape[2]
-    patch = cv.resize(droplet_entry['patch'].reshape(x, y, 2), (128, 128), interpolation=cv.INTER_CUBIC).astype(np.uint8)
-    hog = cv.HOGDescriptor()
+    winSize = (64, 64)
+    blockSize = (16, 16)
+    blockStride = (8, 8)
+    cellSize = (8, 8)
+    patch = cv.resize(droplet_entry['patch'].reshape(x, y, 2), (64, 64), interpolation=cv.INTER_CUBIC).astype(np.uint8)
+    hog = cv.HOGDescriptor(_winSize=winSize, _blockSize=blockSize, _blockStride=blockStride, _cellSize=cellSize, _nbins=9)
     vec1 = hog.compute(patch[:, :, :1])
     #vec2 = hog.compute(patch[:, :, 1:2])
     #ans['hog'] = np.concatenate((vec1, vec2), axis=0)
@@ -783,16 +787,20 @@ def linking(image_name,FEATURE_PATH,RESULT_PATH):
         # brightdiff_thresh = np.nanquantile(brightdiff_mat, quantile_level_matching, axis = 1)
         # validity_mask *= (brightdiff_mat <= brightdiff_thresh[:, None]) * 1
 
-        '''hog_mat = np.zeros((feature_dataset[this_fr].shape[0], feature_dataset[next_fr].shape[0]))
-        hog_prev = feature_dataset[this_fr]['hog'].values
-        hog_next = feature_dataset[next_fr]['hog'].values
-        for i in range(feature_dataset[this_fr].shape[0]):
-            for j in range(feature_dataset[next_fr].shape[0]):
-                hog_mat[i, j] = np.linalg.norm(hog_prev[i] - hog_next[j])
 
-        hog_mat[np.logical_not(within_dist_mask)] = np.nan
-        hog_thresh = np.nanquantile(hog_mat, quantile_level_matching, axis=1)
-        validity_mask *= (hog_mat <= hog_thresh[:, None]) * 1'''
+
+
+        #hog_mat = np.zeros((feature_dataset[this_fr].shape[0], feature_dataset[next_fr].shape[0]))
+
+        hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog'].values)**2, axis=1)
+        hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog'].values)**2, axis=1)
+        hog_mat = np.stack(feature_dataset[this_fr]['hog'].values) @ np.stack(feature_dataset[next_fr]['hog'].values).T
+        hog_prev = hog_prev.reshape(-1,1)
+        dist = hog_prev - 2 * hog_mat + hog_next
+
+        dist[np.logical_not(within_dist_mask)] = np.nan
+        hog_thresh = np.nanquantile(dist, quantile_level_matching, axis=1)
+        validity_mask *= (dist <= hog_thresh[:, None]) * 1
 
         validity_mask[np.logical_not(within_dist_mask)] = 0
 
@@ -858,6 +866,8 @@ def linking(image_name,FEATURE_PATH,RESULT_PATH):
     path = Path(FEATURE_PATH / f"droplets_{image_name}.csv")
     droplet_table = pd.read_csv(path)
     create_final_output(droplet_table,tracking_df,nr_frames,RESULT_PATH,image_name)
+
+
 
 def create_final_output(droplet_table,tracking_table,nr_frames,RESULT_PATH,image_name):
     traj = trajectory_expand_droplets(droplet_table, tracking_table, nr_frames)
