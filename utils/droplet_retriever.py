@@ -4,7 +4,7 @@ import pandas as pd
 from raw_image_reader import get_image_as_ndarray
 from tqdm.auto import tqdm
 
-def create_dataset_from_ndarray(frames, channels, image_ndarray, droplet_table_path, allFrames = False, allChannels = False, buffer = 3, suppress_rest = True, suppression_slack = 1, discard_boundaries = False):
+def create_dataset_from_ndarray(frames, image_ndarray, droplet_table_path, allFrames = False, buffer = 3, suppress_rest = True, suppression_slack = 1, discard_boundaries = False):
     droplet_table = pd.read_csv(droplet_table_path, index_col = False)
     new_frames = frames
     if allFrames:
@@ -256,6 +256,63 @@ def create_dataset_cell_enhanced(frames, channels, image_path, droplet_table_pat
                         corrected_raw_patch = np.int64(ch) - (flatfield_normalized_raw_base * (ch.max() - ch.min()) + ch.min())
                         corrected_raw_patch = np.uint16(np.clip(corrected_raw_patch, 0, 2 ** 16 - 1))
                         image_frame[ch_idx, :, :] = corrected_raw_patch
+            frame_ans = []
+            for idx, droplet in droplets_in_frame.iterrows():
+                droplet_id = droplet['droplet_id']
+                cells_in_frame_in_droplet = (cells_in_frame[cells_in_frame['droplet_id'] == droplet_id])[['cell_id', 'center_row', 'center_col', 'intensity_score', 'persistence_score']]
+                tmp_ans = droplet
+                tmp_ans['patch'] = get_patch(image_frame, droplet['center_row'], droplet['center_col'], droplet['radius'], buffer, suppress_rest, suppression_slack, discard_boundaries)
+                tmp_ans['cell_signals'] = cells_in_frame_in_droplet
+                frame_ans.append(tmp_ans)
+            ans.append(frame_ans)
+        return ans
+    else:
+        new_frames = frames
+        if allFrames:
+            new_frames = range(np.max(droplet_table['frame'].to_numpy(dtype = np.int32)) + 1)
+        ans = []
+        for i, j in tqdm(enumerate(new_frames)):
+            droplets_in_frame = droplet_table[droplet_table['frame'] == j]
+            cells_in_frame = cell_table[cell_table['frame'] == j]
+            frame_ans = []
+            for idx, droplet in droplets_in_frame.iterrows():
+                droplet_id = droplet['droplet_id']
+                cells_in_frame_in_droplet = (cells_in_frame[cells_in_frame['droplet_id'] == droplet_id])[['cell_id', 'center_row', 'center_col', 'intensity_score', 'persistence_score']]
+                tmp_ans = droplet
+                tmp_ans['cell_signals'] = cells_in_frame_in_droplet
+                frame_ans.append(tmp_ans)
+            ans.append(frame_ans)
+        return ans
+
+
+# frames is the list of frames (innteger index) you want to retreive
+# image is the f-c-h-w dimensional image from which the droplets are going to be cut out. f are the frames, c are the channels, h is the image height and w its width
+# droplet_table_path is the path to the csv table with the detected droplets
+# cell_table_path is the path to the csv table with the detected cells / signals
+# allFrames indicates whether we want to retreive all frames.
+# buffer is the number of extra pixels of slack that we want to have when cutting out the droplets. So the dimension of the returned patches is 2 * (slack + radius) + 1.
+# suppress_rest indicates whether we want to suppress the pixels outside of the radius
+# suppression_slack is the distance in pixels outside of teh detected radius, that we still consider to be part of the droplet and which we dont suppress.
+#   So, everything that is farther away than radius + suppression_slack from the droplet center, gets suppressed
+# discard_boundaries indicates whether to not cut out patches that are not 100% included in the image. If set to false, regions of the patch that exceed image boundaries are filled with zeros.
+#   If set to true, droplets whose image patches are not contained in the image get a patch of 0x0 pixels.
+# returns a list with one element for each frame. Each element is again a list of dicts / dataframes (not sure) 
+#   which contains all the data about the droplet plus a 'patch' which is the image patch around the droplet with according channels
+
+def create_dataset_cell_enhanced_from_ndarray(frames, image, droplet_table_path, cell_table_path, allFrames = False, buffer = 3, suppress_rest = True, suppression_slack = 1, discard_boundaries = False, omit_patches = False):
+    droplet_table = pd.read_csv(droplet_table_path, index_col = False)
+    cell_table = pd.read_csv(cell_table_path, index_col = False)
+    if not omit_patches:
+        raw_images = image
+        # print(raw_images.shape)
+        new_frames = frames
+        if allFrames:
+            new_frames = range(raw_images.shape[0])
+        ans = []
+        for i, j in enumerate(new_frames):
+            droplets_in_frame = droplet_table[droplet_table['frame'] == j]
+            cells_in_frame = cell_table[cell_table['frame'] == j]
+            image_frame = raw_images[i, :, :, :]
             frame_ans = []
             for idx, droplet in droplets_in_frame.iterrows():
                 droplet_id = droplet['droplet_id']
