@@ -1,5 +1,6 @@
 from data_creation.populate_data import populate
 from tracking.hierarchical_linking import linking
+from tracking.hierarchical_linking import droplet_linking_feature_based_voting
 import argparse
 from pathlib import Path
 import os
@@ -32,6 +33,6 @@ populate(raw_image_path,image_name,FEATURE_PATH,PREPROCESSED_PATH,DROPLET_PATH)
 
 print("----Applying Tracking Methods----")
 linking(image_name,FEATURE_PATH,RESULT_PATH)
-
+# droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, bf_image_path, dapi_image_path,tracking_table_path)
 
 print("--- %s seconds ---" % (time.time() - start_time))

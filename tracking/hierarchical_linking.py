@@ -11,6 +11,7 @@ from visualizer.interactive_explorer import trajectory_expand_droplets
 
 
 def compute_droplet_statistics (droplet_entry):
+    # print(droplet_entry)
     ans = {}
     ans['frame'] = droplet_entry['frame']
     ans['droplet_id'] = droplet_entry['droplet_id']
@@ -25,20 +26,6 @@ def compute_droplet_statistics (droplet_entry):
         cell_intens = tmp_cell_matrix[:, 3]
         cell_persis = tmp_cell_matrix[:, 4]
         ans['integrated_brightness'] = np.sum(cell_intens * cell_persis)
-        # ans['signals_weighted_CoM'] = np.sum(cell_loc * cell_intens[:, None] * cell_persis[:, None], axis = 0) / np.sum(cell_intens * cell_persis)
-        # if ans['nr_signals'] > 1:
-        #     ans['signals_deviation_from_CoM'] = np.sqrt(np.sum(np.linalg.norm(cell_loc - ans['signals_weighted_CoM'][None, :], axis = 1) ** 2 * cell_intens * cell_persis) * np.sum(cell_intens * cell_persis) / (np.sum(cell_intens * cell_persis)**2 - np.sum((cell_intens * cell_persis) ** 2)))
-        # else:
-        #     ans['signals_deviation_from_CoM'] = 0
-        # ans['max_sig_strength'] = np.max(cell_intens * cell_persis)
-        # ans['mean_sig_strength'] = np.mean(cell_intens * cell_persis)
-        # ans['std_sig_strength'] = np.std(cell_intens * cell_persis)
-        # ans['max_sig_persis'] = np.max(cell_persis)
-        # ans['mean_sig_persis'] = np.mean(cell_persis)
-        # ans['std_sig_persis'] = np.std(cell_persis)
-        # ans['max_sig_intens'] = np.max(cell_intens)
-        # ans['mean_sig_intens'] = np.mean(cell_intens)
-        # ans['std_sig_intens'] = np.std(cell_intens)
     else:
         ans['integrated_brightness'] = 0
         # ans['signals_weighted_CoM'] = np.zeros((2,))
@@ -346,8 +333,13 @@ def iterative_refinement_method (droplet_table_path, cell_table_path, image_path
     tracking_df.to_csv(tracking_table_path, index = False)
         
 
-def droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, image_path, tracking_table_path):
-    dataset = create_dataset_cell_enhanced(None, ["BF", "DAPI"], image_path, droplet_table_path, cell_table_path, allFrames = True, buffer = -2, suppress_rest = True, suppression_slack = -3, median_filter_preprocess = True) 
+
+
+def droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, bf_image_path, dapi_image_path,tracking_table_path):
+    bf_image = np.load(bf_image_path, allow_pickle = True)
+    dapi_image = np.load(dapi_image_path, allow_pickle = True)
+    image = np.transpose(np.asarray([bf_image, dapi_image]), axes = [1, 0, 2, 3])
+    dataset = create_dataset_cell_enhanced_from_ndarray(None, image, droplet_table_path, cell_table_path, allFrames = True, buffer = -2, suppress_rest = True, suppression_slack = -3) 
     better_dataset = []
     for ds in dataset:
         concatenated_df = pd.concat(ds, axis = 1)
@@ -361,13 +353,16 @@ def droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, i
         tmp2 = np.zeros((ds.shape[0], 2, 40, 40), dtype = np.float64)
         iterator = 0
         for idx, row in ds.iterrows():
+            # cv.imshow("test", row['patch'][0, :, :])
+            # cv.waitKey(0)
+            # cv.imshow("test", row['patch'][1, :, :])
+            # cv.waitKey(0)
+
             tmp = compute_droplet_statistics(row)
             tmp3 = np.float64(row['patch'][1, :, :]) * (2.0 ** (-16))
-            tmp3 -= np.median(tmp3)
             tmp['integrated_brightness'] = np.sum(tmp3)
             tmp['max_brightness'] = np.max(tmp3)
             tmp2[iterator, :, :, :] = np.float64(resize_patch(row['patch'], 40) * (2.0 ** (-16)))
-            tmp2[iterator, 0, :, :] = cv.GaussianBlur(tmp2[iterator, 0, :, :], (3, 3), 0)
             tmp2[iterator, 0, :, :] = tmp2[iterator, 0, :, :] - np.mean(tmp2[iterator, 0, :, :])
             tmp2[iterator, 1, :, :] = tmp2[iterator, 1, :, :] - np.mean(tmp2[iterator, 1, :, :])
             # cv.imshow("test", tmp2[iterator, 0, :, :] / np.max(tmp2[iterator, 0, :, :]))
