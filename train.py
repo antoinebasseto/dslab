@@ -7,7 +7,9 @@ import toml
 import logging
 import torch
 
-from models.DeepRanking import DeepRanking
+from models.AE import AE
+from models.ViTMAE import ViTMAE
+from utils.models_common import create_dataset_images
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
 EXPERIMENTS_PATH = Path(PROJECT_PATH / "experiments")
@@ -66,9 +68,14 @@ def main() -> None:
     logging.basicConfig(filename=str(experiment_dir / 'output.log'), level=logging.INFO)
     logging.getLogger().addHandler(logging.StreamHandler())
 
-    if config['model'] == "DeepRanking":
+    #if create_data set to true, config file should include a droplet table path and a path to the image (nd2)
+    if config['create_data']:
+        break_points = create_dataset_images(args.experiment, PROJECT_PATH, config["image_path"], config["droplet_table_path"])
+        config["break_points"] = break_points
+
+    if config['model'] == "ConvAE":
         if "checkpoint" in config:
-            model = DeepRanking(config)
+            model = AE(config)
             checkpoint_path = config["checkpoint"]
             checkpoint = torch.load(checkpoint_path, map_location=model.device)
             model.model.load_state_dict(checkpoint['model_state_dict'])
@@ -76,7 +83,18 @@ def main() -> None:
             model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             print("loaded checkpoint", checkpoint_path)
         else:
-            model = DeepRanking(config)
+            model = AE(config)
+    elif config['model'] == "VitMae":
+        if "checkpoint" in config:
+            model = ViTMAE(config)
+            checkpoint_path = config["checkpoint"]
+            checkpoint = torch.load(checkpoint_path, map_location=model.device)
+            model.model.load_state_dict(checkpoint['model_state_dict'])
+            model.step = checkpoint['step']
+            model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            print("loaded checkpoint", checkpoint_path)
+        else:
+            model = ViTMAE(config)
     else:
         raise Exception(f"Unknown model {config['model']}")
     logging.info("Training model...")

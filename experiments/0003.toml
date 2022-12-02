@@ -1,0 +1,20 @@
+[config]
+model = "VitMae"
+create_data = false
+image_path = "data/Smallmvt1.nd2"
+droplet_table_path = "utils/droplets_and_cells/finished_outputs/smallMovement1_droplets.csv"
+train_dataset = 'data/04_droplet/smallmovement1'
+val_dataset = 'data/04_droplet/val'
+num_frames = 8
+img_shape = [3, 224, 224]
+enc_shape = [1, 196]
+conv_layers = [16, 32, 64, 128, 256]
+loss = 'MSE'
+epochs = 30
+learning_rate = 0.1
+steps_per_checkpoint = 5000
+steps_per_validation = 5000
+batch_size = 32
+num_images = 1
+tensorboard = false
+seed = 123456
