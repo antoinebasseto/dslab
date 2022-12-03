@@ -480,7 +480,7 @@ def droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, b
         bf_corr_mat = similarity_matrix_bf_dapi[:, :, 0]
         # Set droplets out of reach to nan
         bf_corr_mat[np.logical_not(within_dist_mask)] = np.nan
-        for perc in [0.125]:
+        for perc in [0.125, 0.25, 0.5]:
             # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
             bf_corr_thresh = np.nanquantile(bf_corr_mat, perc, axis = 1)
             voting_bins += (bf_corr_mat >= bf_corr_thresh[:, None]) * 1
@@ -544,7 +544,7 @@ def droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, b
 
         # sqdistance_matrix[within_dist_mask] = np.int64(sqdistance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0))
 
-        # distance_matrix[within_dist_mask] = np.int64(distance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0) * (1.0 - bf_corr_mat[within_dist_mask] + 1.0) * (1.0 - dapi_corr_mat[within_dist_mask] + 1.0))
+        distance_matrix[within_dist_mask] = np.int64(distance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0) * (1.0 - bf_corr_mat[within_dist_mask] + 1.0) * (1.0 - dapi_corr_mat[within_dist_mask] + 1.0))
 
         print("")
         # assigned, sinked = solve_assignment_with_sink(validity_mask, sqdistance_matrix, np.ones((validity_mask.shape[0],), dtype = np.int32) * maximal_distance ** 2)
@@ -596,7 +596,7 @@ def droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, b
     tracking_df.to_csv(tracking_table_path, index = False)
 
 
-def linking(image_name,FEATURE_PATH,RESULT_PATH):
+def linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = False):
     '''dataset = create_dataset_cell_enhanced(None, ["BF", "DAPI"], image_path, droplet_table_path, cell_table_path,
                                            allFrames=True, buffer=-2, suppress_rest=True, suppression_slack=-3,
                                            median_filter_preprocess=True)'''
@@ -747,9 +747,9 @@ def linking(image_name,FEATURE_PATH,RESULT_PATH):
         intbrightdiff_mat = np.abs(
             feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype=np.float32)[:, None] -
             feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype=np.float32)[None, :])
-        intbrightdiff_mat /= np.sqrt(
-            np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype=np.float32)[:, None]) * np.abs(
-                feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype=np.float32)[None, :]))
+        # intbrightdiff_mat /= np.sqrt(
+        #     np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype=np.float32)[:, None]) * np.abs(
+        #         feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype=np.float32)[None, :]))
         intbrightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
         intbrightdiff_thresh = np.nanquantile(intbrightdiff_mat, quantile_level_matching, axis=1)
         validity_mask *= (intbrightdiff_mat <= intbrightdiff_thresh[:, None]) * 1
@@ -758,9 +758,9 @@ def linking(image_name,FEATURE_PATH,RESULT_PATH):
             feature_dataset[this_fr]['max_brightness'].to_numpy(dtype=np.float32)[:, None] - feature_dataset[next_fr][
                                                                                                  'max_brightness'].to_numpy(
                 dtype=np.float32)[None, :])
-        maxbrightdiff_mat /= np.sqrt(
-            np.abs(feature_dataset[this_fr]['max_brightness'].to_numpy(dtype=np.float32)[:, None]) * np.abs(
-                feature_dataset[next_fr]['max_brightness'].to_numpy(dtype=np.float32)[None, :]))
+        # maxbrightdiff_mat /= np.sqrt(
+        #     np.abs(feature_dataset[this_fr]['max_brightness'].to_numpy(dtype=np.float32)[:, None]) * np.abs(
+        #         feature_dataset[next_fr]['max_brightness'].to_numpy(dtype=np.float32)[None, :]))
         maxbrightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
         maxbrightdiff_thresh = np.nanquantile(maxbrightdiff_mat, quantile_level_matching, axis=1)
         validity_mask *= (maxbrightdiff_mat <= maxbrightdiff_thresh[:, None]) * 1
@@ -847,6 +847,291 @@ def linking(image_name,FEATURE_PATH,RESULT_PATH):
         # distance_matrix = np.int64(distance_matrix ** 2)
 
         # assert(False)
+    tracking_df = pd.DataFrame(out)
+    result_feature_path = Path(RESULT_PATH / f"tracking_{image_name}.csv")
+    tracking_df.to_csv(result_feature_path, index=False)
+    path = Path(FEATURE_PATH / f"droplets_{image_name}.csv")
+    droplet_table = pd.read_csv(path)
+    create_final_output(droplet_table,tracking_df,nr_frames,RESULT_PATH,image_name)
+
+def create_final_output(droplet_table,tracking_table,nr_frames,RESULT_PATH,image_name):
+    traj = trajectory_expand_droplets(droplet_table, tracking_table, nr_frames)
+    grp = list(traj.groupby(['trajectory_id']))
+    final = np.zeros((len(grp), 2*nr_frames+1))
+    for i in range(len(grp)):
+        final[i][0] = i
+        tmp = grp[i][1]
+        for index, row in tmp.iterrows():
+            final[i][2 * row['frame'] + 1] = row['center_row']
+            final[i][2 * row['frame'] + 2] = row['center_col']
+
+    cols = ['drop_id']
+    for i in range(nr_frames):
+        cols.append("x" + str(i + 1))
+        cols.append("y" + str(i + 1))
+
+    result = pd.DataFrame(final, columns=cols)
+
+    result_feature_path = Path(RESULT_PATH / f"results_{image_name}.csv")
+    result.to_csv(result_feature_path, index=False)
+
+
+
+
+
+def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = False):
+    '''dataset = create_dataset_cell_enhanced(None, ["BF", "DAPI"], image_path, droplet_table_path, cell_table_path,
+                                           allFrames=True, buffer=-2, suppress_rest=True, suppression_slack=-3,
+                                           median_filter_preprocess=True)'''
+    path = Path(FEATURE_PATH / f"fulldataset_{image_name}.npy")
+    dataset = np.load(path, allow_pickle=True)
+    embedding_path = Path(FEATURE_PATH / f"embeddings_{image_name}.npy")
+    embedding_dataset = None
+    if use_embeddings:
+        embedding_dataset = np.int32(np.asarray(np.load(embedding_path, allow_pickle=True), dtype = np.float64))
+        # print(embedding_dataset)
+    better_dataset = []
+    for ds in dataset:
+        concatenated_df = pd.concat(ds, axis=1)
+        concatenated_df = concatenated_df.T
+        better_dataset.append(concatenated_df)
+    nr_frames = len(dataset)
+    feature_dataset = []
+    image_dataset = []
+
+    frame_number = 0
+    for ds in better_dataset:
+        tmp1 = []
+        tmp2 = np.zeros((ds.shape[0], 2, 40, 40), dtype=np.float64)
+        embeddings_this_frame = None
+        if embedding_dataset is not None:
+            # print(embedding_dataset[:, 0])
+            embeddings_this_frame = embedding_dataset[embedding_dataset[:, 0] == frame_number + 1, :]
+            print(embeddings_this_frame.shape[0])
+            print(ds.shape[0])
+            assert(False)
+            # print(embeddings_this_frame)
+        # assert(False)
+
+        iterator = 0
+        for idx, row in ds.iterrows():
+            tmp = compute_droplet_statistics(row)
+            tmp3 = np.float64(row['patch'][1, :, :]) * (2.0 ** (-16))
+            tmp3 -= np.median(tmp3)
+            tmp['integrated_brightness'] = np.sum(tmp3)
+            tmp['max_brightness'] = np.max(tmp3)
+            tmp2[iterator, :, :, :] = np.float64(resize_patch(row['patch'], 40) * (2.0 ** (-16)))
+            # tmp2[iterator, 0, :, :] = cv.GaussianBlur(tmp2[iterator, 0, :, :], (3, 3), 0)
+            tmp2[iterator, 0, :, :] = tmp2[iterator, 0, :, :] - np.mean(tmp2[iterator, 0, :, :])
+            tmp2[iterator, 1, :, :] = tmp2[iterator, 1, :, :] - np.mean(tmp2[iterator, 1, :, :])
+
+
+            embedding_this_droplet = None
+            if embeddings_this_frame is not None:
+                tmp['embedding'] = embeddings_this_frame[embeddings_this_frame[:, 1] == row['droplet_id'], 2:].flatten()
+            # cv.imshow("test", tmp2[iterator, 0, :, :] / np.max(tmp2[iterator, 0, :, :]))
+            # cv.waitKey(0)
+            # cv.imshow("test", tmp2[iterator, 1, :, :])
+            # cv.waitKey(0)
+            iterator += 1
+            tmp1.append(tmp)
+        tmp1 = pd.DataFrame(tmp1)
+        feature_dataset.append(tmp1)
+        image_dataset.append(tmp2)
+        frame_number += 1
+
+    out = []
+    for frame_nr in range(nr_frames - 1):
+
+       # IDEA: Voting system
+
+        # For readability, get indices of this and next frame
+        this_fr = frame_nr
+        next_fr = this_fr + 1
+
+        # Maximal distance allowed for two droplets to be matched
+        maximal_distance = 250
+
+        # An integer matrix which at the end, will contain in entry i,j the number of votes that favor linking droplet i from the previous frame to droplet j in the next frame.
+        # The votes will come from features
+        voting_bins = np.zeros((feature_dataset[this_fr].shape[0], feature_dataset[next_fr].shape[0]), dtype = np.int32)
+
+        # Compute the distance between all droplets
+        distance_matrix = np.asarray([feature_dataset[this_fr]['center_row'].to_numpy(dtype = np.float64), feature_dataset[this_fr]['center_col'].to_numpy(dtype = np.float64)]).transpose()
+        distance_matrix = np.linalg.norm(distance_matrix[:, None, :] - np.asarray([feature_dataset[next_fr]['center_row'].to_numpy(dtype = np.float64), feature_dataset[next_fr]['center_col'].to_numpy(dtype = np.float64)]).transpose()[None, :, :], axis = 2)
+        # Square distance in case we need it
+        sqdistance_matrix = np.int64(distance_matrix ** 2)
+        # A boolean mask that tells us if two droplets in the two subsequent frames are within range of each other
+        within_dist_mask = (distance_matrix <= maximal_distance)
+
+        # This matrix will contain all correlations / similarities between droplets that are close enough to each other for both the dapi and bf channel.
+        # Correlation here literally means linear correlation / convolution
+        similarity_matrix_bf_dapi = np.zeros((image_dataset[this_fr].shape[0], image_dataset[next_fr].shape[0], 2), dtype = np.float64)
+        # Computing these similarities must be done batch-wise because otherwise we use too much memory
+        for row_idx, row in tqdm(enumerate(within_dist_mask)):
+            similarity_matrix_bf_dapi[row_idx, row, :] = np.sum(image_dataset[this_fr][row_idx, None, :, :, :] * image_dataset[next_fr][None, row, :, :, :], axis = (3, 4))
+            similarity_matrix_bf_dapi[row_idx, row, :] /= np.sqrt(np.sum((image_dataset[this_fr][row_idx, :, :, :])**2, axis = (1, 2)))[None, :] * np.sqrt(np.sum((image_dataset[next_fr][row, :, :, :])**2, axis = (2, 3)))[:, :]
+        
+        #  np.sum(image_dataset[this_fr][:, None, :, :, :] * image_dataset[next_fr][None, :, :, :, :], axis = (3, 4))
+
+
+        # significant_droplets_mask = (similarity_matrix_bf_dapi[:, :, 0] > np.quantile(similarity_matrix_bf_dapi[within_dist_mask, 0], quantile_level_significant_corr)) * 1
+        # validity_mask *= significant_droplets_mask
+        # significant_droplets_mask = (similarity_matrix_bf_dapi[:, :, 1] > np.quantile(similarity_matrix_bf_dapi[within_dist_mask, 1], quantile_level_significant_corr)) * 1
+        # validity_mask *= significant_droplets_mask
+
+        # tmp1 = feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)
+        # significant_droplets_mask = (tmp1 >= np.quantile(tmp1, quantile_level_significant)) * 1
+        # validity_mask *= significant_droplets_mask[:, None]
+
+        # tmp1 = feature_dataset[this_fr]['nr_signals'].to_numpy(dtype = np.int32)
+        # significant_droplets_mask = (tmp1 > np.quantile(tmp1, quantile_level_significant)) * 1
+        # validity_mask *= significant_droplets_mask[:, None]
+
+        # print(np.sum(validity_mask))
+
+        # Get the vector with nr of cells in the previous frame
+        tmp1 = feature_dataset[this_fr]['nr_cells'].to_numpy(dtype = np.int32)
+        # Get the vector with nr of cells in the next frame
+        tmp2 = feature_dataset[next_fr]['nr_cells'].to_numpy(dtype = np.int32)
+        # Compute the absolute differences in terms of nr of cells detected between all droplets in prevous and next frame
+        celldiff_mat = np.abs(tmp1[:, None] - tmp2[None, :])
+        # celldiff_mat /= np.sqrt(1.0 + np.abs(tmp1)[:, None] * np.abs(tmp2)[None, :])
+        # celldiff_mat[np.logical_not(within_dist_mask)] = np.nan
+        # celldiff_thresh = 1
+
+        # Now its time to vote
+        # We vote in favor of matching two droplets between two frames if the difference in nr of cells is leq 1 or if it is leq 2 and one of the droplets has at least 4 cells detected
+        # voting_bins += (np.logical_or(celldiff_mat <= 1, np.logical_and(celldiff_mat <= 2, np.logical_or(tmp1[:, None] >= 4, tmp2[None, :] >= 4)))) * 1
+        # validity_mask *= (np.logical_or(celldiff_mat <= 1, np.logical_and(celldiff_mat <= 2, np.logical_or(tmp1[:, None] >= 4, tmp2[None, :] >= 4)))) * 1
+        # We give negative votes proportional to teh absolute difference in nr of detected cells
+        voting_bins -= celldiff_mat
+        
+        
+        # celldiff_thresh = np.nanquantile(celldiff_mat, quantile_level_matching, axis = 1)
+        # validity_mask *= (celldiff_mat <= celldiff_thresh[:, None]) * 1
+        # validity_mask[np.logical_not(within_dist_mask)] = 0
+
+        # cellmatching_mat = (((1 - 2 * (feature_dataset[this_fr]['nr_cells'].to_numpy(dtype = np.int32) > 0))[:, None] * (1 - 2 * (feature_dataset[next_fr]['nr_cells'].to_numpy(dtype = np.int32) > 0))[None, :]) == 1) * 1
+        # validity_mask *= cellmatching_mat
+
+        # cellexists_mat = (((feature_dataset[this_fr]['nr_cells'].to_numpy(dtype = np.int32) > 0)[:, None] * (feature_dataset[next_fr]['nr_cells'].to_numpy(dtype = np.int32) > 0)[None, :])) * 1
+        # validity_mask *= cellexists_mat
+
+        # signaldiff_mat = np.abs(feature_dataset[this_fr]['nr_signals'].to_numpy(dtype = np.float32)[:, None] - feature_dataset[next_fr]['nr_signals'].to_numpy(dtype = np.float32)[None, :])
+        # signaldiff_mat /= np.sqrt(1.0 + np.abs(feature_dataset[this_fr]['nr_signals'].to_numpy(dtype = np.float32))[:, None] * np.abs(feature_dataset[next_fr]['nr_signals'].to_numpy(dtype = np.float32))[None, :])
+        # signaldiff_mat[np.logical_not(within_dist_mask)] = np.nan
+        # signaldiff_thresh = np.nanquantile(signaldiff_mat, quantile_level_matching, axis = 1)
+        # validity_mask *= (signaldiff_mat <= signaldiff_thresh[:, None]) * 1
+        # validity_mask[np.logical_not(within_dist_mask)] = 0
+        # print(np.sum(validity_mask))
+
+        # signalmatching_mat = (((1 - 2 * (feature_dataset[this_fr]['nr_signals'].to_numpy(dtype = np.int32) > 0))[:, None] * (1 - 2 * (feature_dataset[next_fr]['nr_signals'].to_numpy(dtype = np.int32) > 0))[None, :]) == 1) * 1
+        # validity_mask *= signalmatching_mat
+
+        # signalexists_mat = (((feature_dataset[this_fr]['nr_signals'].to_numpy(dtype = np.int32) > 0)[:, None] * (feature_dataset[next_fr]['nr_signals'].to_numpy(dtype = np.int32) > 0)[None, :])) * 1
+        # validity_mask *= signalexists_mat
+        # signalexists_now_mat = (feature_dataset[this_fr]['nr_signals'].to_numpy(dtype = np.int32) > 0) * 1
+        # validity_mask *= signalexists_now_mat[:, None]
+
+        # Compute the difference in droplet radius between the two frames for every droplet
+        radiusdiff_mat = np.abs(feature_dataset[this_fr]['radius'].to_numpy(dtype = np.int32)[:, None] - feature_dataset[next_fr]['radius'].to_numpy(dtype = np.int32)[None, :])
+        # Give negative votes based on how big the discrepancy between the radii is
+        voting_bins -= radiusdiff_mat
+        # validity_mask *= (radiusdiff_mat <= 3) * 1
+        # radiusdiff_thresh = np.quantile(radiusdiff_mat, quantile_level, axis = 1)
+        # validity_mask *= (radiusdiff_mat <= radiusdiff_thresh[:, None]) * 1
+        
+        # Look at the correlations between droplets in the brightfield channel
+        bf_corr_mat = similarity_matrix_bf_dapi[:, :, 0]
+        # Set droplets out of reach to nan
+        bf_corr_mat[np.logical_not(within_dist_mask)] = np.nan
+        for perc in [0.2, 0.4, 0.6, 0.8]:
+            # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+            bf_corr_thresh = np.nanquantile(bf_corr_mat, perc, axis = 1)
+            voting_bins += (bf_corr_mat >= bf_corr_thresh[:, None]) * 1
+
+        
+        # Look at the correlations between droplets in the dapi channel
+        dapi_corr_mat = similarity_matrix_bf_dapi[:, :, 1]
+        # Set droplets out of reach to nan
+        dapi_corr_mat[np.logical_not(within_dist_mask)] = np.nan
+        for perc in [0.2, 0.4, 0.6, 0.8]:
+            # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+            dapi_corr_thresh = np.nanquantile(dapi_corr_mat, perc, axis = 1)
+            voting_bins += (dapi_corr_mat >= dapi_corr_thresh[:, None]) * 1
+
+        # Look at the difference of integrated brightness for every pair of droplets
+        intbrightdiff_mat = np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None] - feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :])
+        # intbrightdiff_mat /= np.sqrt(np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None]) * np.abs(feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :]))
+        # Set droplets out of reach to nan
+        intbrightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
+        for perc in [0.2, 0.4, 0.6, 0.8]:
+            # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+            intbrightdiff_thresh = np.nanquantile(intbrightdiff_mat, perc, axis = 1)
+            voting_bins += (intbrightdiff_mat <= intbrightdiff_thresh[:, None]) * 1
+
+        # Look at the difference of maximum brightness for every pair of droplets
+        maxbrightdiff_mat = np.abs(feature_dataset[this_fr]['max_brightness'].to_numpy(dtype = np.float32)[:, None] - feature_dataset[next_fr]['max_brightness'].to_numpy(dtype = np.float32)[None, :])
+        # maxbrightdiff_mat /= np.sqrt(np.abs(feature_dataset[this_fr]['max_brightness'].to_numpy(dtype = np.float32)[:, None]) * np.abs(feature_dataset[next_fr]['max_brightness'].to_numpy(dtype = np.float32)[None, :]))
+        # Set droplets out of reach to nan
+        maxbrightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
+        for perc in [0.2, 0.4, 0.6, 0.8]:
+            # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+            maxbrightdiff_thresh = np.nanquantile(maxbrightdiff_mat, perc, axis = 1)
+            voting_bins += (maxbrightdiff_mat <= maxbrightdiff_thresh[:, None]) * 1
+
+
+        # Set voting bins for matchings that  are out of reach to nan
+        voting_bins = np.float32(voting_bins)
+        voting_bins[np.logical_not(within_dist_mask)] = np.nan
+        # For every droplet, look at the 50% of droplets in the next frame that are within range and that have the most votes.
+        #  Those are the droplets wit which we allow a matching. All other possible matchings get discarded
+        vote_threshold_per_droplet = np.nanquantile(voting_bins, 0.5, axis = 1)
+        # Create a mask of which matchings are allowed based on voting
+        validity_mask = (voting_bins >= vote_threshold_per_droplet[:, None]) * 1
+        # Set validity_mask for matchings that are out of reach to 0.
+        validity_mask[np.logical_not(within_dist_mask)] = 0
+
+        # print(np.sum(brightdiff_mat <= brightdiff_thresh[:, None]))
+        # print(np.max(brightdiff_mat[within_dist_mask]))
+        # print(np.median(brightdiff_mat[within_dist_mask]))
+        # print(np.mean(brightdiff_mat[within_dist_mask]))
+        # print(np.min(brightdiff_mat[within_dist_mask]))
+        # assert(False)
+
+        # brightdiff_mat = np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None] - feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :])
+        # brightdiff_mat /= np.sqrt(np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None]) * np.abs(feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :]))
+        # brightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
+        # brightdiff_thresh = np.nanquantile(brightdiff_mat, quantile_level_matching, axis = 1)
+        # validity_mask *= (brightdiff_mat <= brightdiff_thresh[:, None]) * 1
+
+        # print(np.sum(validity_mask))
+
+        # sqdistance_matrix[within_dist_mask] = np.int64(sqdistance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0))
+
+        distance_matrix[within_dist_mask] = np.int64(distance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0) * (1.0 - bf_corr_mat[within_dist_mask] + 1.0) * (1.0 - dapi_corr_mat[within_dist_mask] + 1.0))
+
+        print("")
+        # assigned, sinked = solve_assignment_with_sink(validity_mask, sqdistance_matrix, np.ones((validity_mask.shape[0],), dtype = np.int32) * maximal_distance ** 2)
+        
+        # Here we do some weird scaling shenanigans because the flow optimization algorithm used only accepts integer cost.
+        assigned, sinked = solve_assignment_with_sink(validity_mask, np.int64(distance_matrix * 10), np.ones((validity_mask.shape[0],), dtype = np.int32) * maximal_distance * 10)
+        print("Number of assignments found: " + str(assigned.shape[0]))
+        print("Number of unassigned droplets: " + str(sinked.size))
+
+        print("Assignments: ")
+        print(assigned)
+
+        print("Average distance:" + str(np.mean(np.sqrt(assigned[:, 2]))))
+        print("Median distance:" + str(np.median(np.sqrt(assigned[:, 2]))))
+
+        print("Mean possibilities per droplet: " + str(np.mean(np.sum(validity_mask, axis = 1))))
+        print("Percentage of droplets with possibilities: " + str(np.mean(np.sum(validity_mask, axis = 1) > 0)))
+        print("Mean possibilities per droplet for droplets with possibilities: " + str(np.mean(np.sum(validity_mask, axis = 1)) / np.mean(np.sum(validity_mask, axis = 1) > 0)))
+
+        for ass in assigned:
+            out.append({"framePrev": this_fr, "frameNext": next_fr, "dropletIdPrev": ass[0], "dropletIdNext": ass[1]})
     tracking_df = pd.DataFrame(out)
     result_feature_path = Path(RESULT_PATH / f"tracking_{image_name}.csv")
     tracking_df.to_csv(result_feature_path, index=False)

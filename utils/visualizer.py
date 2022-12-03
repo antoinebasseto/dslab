@@ -10,6 +10,17 @@ PROJECT_PATH = Path(os.path.dirname(os.getcwd()))
 RESULTS_PATH = Path(PROJECT_PATH / "results")
 DATA_PATH = Path(PROJECT_PATH / "data")
 
+
+"""
+/opt/homebrew/Caskroom/miniconda/base/envs/dsl/bin/python3 visualizer.py "../data/01_raw/smallMovement1.nd2" "../data/03_features/droplets_smallmovement1.csv" --pairingpath "../data/05_results/tracking_smallmovement1.csv" --experimentid "latestTest"
+/opt/homebrew/Caskroom/miniconda/base/envs/dsl/bin/python3 visualizer.py "../data/01_raw/largeMovement1.nd2" "../data/03_features/droplets_largemovement1.csv" --pairingpath "../data/05_results/tracking_largemovement1.csv" --experimentid "latestTest"
+/opt/homebrew/Caskroom/miniconda/base/envs/dsl/bin/python3 visualizer.py "../data/01_raw/largeMovement3.nd2" "../data/03_features/droplets_largemovement3.csv" --pairingpath "../data/05_results/tracking_largemovement3.csv" --experimentid "largemovement3"
+/opt/homebrew/Caskroom/miniconda/base/envs/dsl/bin/python3 visualizer.py "../data/01_raw/largeMovement2.nd2" "../data/03_features/droplets_largemovement2.csv" --pairingpath "../data/05_results/tracking_largemovement2.csv" --experimentid "largemovement2"
+/opt/homebrew/Caskroom/miniconda/base/envs/dsl/bin/python3 visualizer.py "../data/01_raw/largeMovement4.nd2" "../data/03_features/droplets_largemovement4.csv" --pairingpath "../data/05_results/tracking_largemovement4.csv" --experimentid "largemovement4"
+/opt/homebrew/Caskroom/miniconda/base/envs/dsl/bin/python3 visualizer.py "../data/01_raw/smallMovement3.nd2" "../data/03_features/droplets_smallmovement3.csv" --pairingpath "../data/05_results/tracking_smallmovement3.csv" --experimentid "smallmovement3"
+/opt/homebrew/Caskroom/miniconda/base/envs/dsl/bin/python3 visualizer.py "../data/01_raw/smallMovement2.nd2" "../data/03_features/droplets_smallmovement2.csv" --pairingpath "../data/05_results/tracking_smallmovement2.csv" --experimentid "smallmovement2"
+"""
+
 # imagepath is the path to the nd2 image 
 # pairingpath is the path to the csv table with the pairings of droplets between frames
 # dropletpath is the path to the csv table with the droplets

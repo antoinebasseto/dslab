@@ -73,10 +73,16 @@ def preprocess_alt_featextr(image_path: str) -> np.ndarray:
         bf_chan = np.clip((bf_chan - bf_chan_low) / (bf_chan_high - bf_chan_low), 0.0, 1.0)
         img_medianblurred = np.float64(cv.medianBlur(np.uint8(bf_chan * 255), 2 * 50 + 1) / 255.0)
         img_mediansharpened = np.clip(bf_chan - img_medianblurred, 0.0, 1.0)
+        equalized_bf = rank.equalize(img_mediansharpened, footprint=disk(10)) / 255.0
+        img_mediansharpened = img_mediansharpened * equalized_bf
         thresh = np.quantile(img_mediansharpened, 0.5)
         img_mediansharpened[img_mediansharpened > thresh] = bf_chan[img_mediansharpened > thresh]
 
         frame[0] = cv.GaussianBlur(np.uint16(img_mediansharpened * (2**16 - 1)), (3, 3), 0)
+        # cv.imshow('test', bf_chan[:1000, :1000])
+        # cv.waitKey(0)
+        # cv.imshow('test', frame[0, :1000, :1000])
+        # cv.waitKey(0)
 
         # DAPI preprocessing
         dapi_chan = np.float64(frame[1, :, :])
@@ -84,7 +90,15 @@ def preprocess_alt_featextr(image_path: str) -> np.ndarray:
         dapi_chan = np.clip((dapi_chan - dapi_chan_low) / ((2**16 - 1) - dapi_chan_low), 0.0, 1.0)
         img_medianblurred = np.float64(cv.medianBlur(np.uint8(dapi_chan * 255), 2 * 20 + 1) / 255.0)
         img_mediansharpened = np.clip(dapi_chan - img_medianblurred, 0.0, 1.0)
-        img_mediansharpened[img_mediansharpened > 0.0] = dapi_chan[img_mediansharpened > 0.0]
+        equalized_dapi = rank.equalize(img_mediansharpened, footprint=disk(10)) / 255.0
+        img_mediansharpened = img_mediansharpened * equalized_bf
+        thresh = np.quantile(img_mediansharpened, 0.8)
+        img_mediansharpened[img_mediansharpened > thresh] = dapi_chan[img_mediansharpened > thresh]
 
         frame[1] = np.uint16(img_mediansharpened * (2**16 - 1))
+        # cv.imshow('test', dapi_chan[:1000, :1000])
+        # cv.waitKey(0)
+        # cv.imshow('test', frame[1, :1000, :1000])
+        # cv.waitKey(0)
+    image[np.isnan(image)] = 0.0
     return image
