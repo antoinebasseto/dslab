@@ -13,6 +13,7 @@ from models.ViTMAE import ViTMAE
 import numpy as np
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
+PROJECT_PATH = Path(PROJECT_PATH + "/..")
 EXPERIMENTS_PATH = Path(PROJECT_PATH / "experiments")
 
 

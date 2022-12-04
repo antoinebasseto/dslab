@@ -108,6 +108,8 @@ def circle_RANSAC3(points_img, edge_img, rmin, rmax):
 
   diagonal = np.linalg.norm(np.asarray([s[0], s[1]]))
   nnz = np.sum(filtered_points_img == 1.0)
+  if nnz == 0:
+    return None
   canvas = np.zeros(s, dtype = np.float32)
   coords = np.transpose(np.asarray(np.where(filtered_points_img == 1.0)))
   # print(coords.shape)
@@ -151,7 +153,8 @@ def circle_RANSAC3(points_img, edge_img, rmin, rmax):
   line_directions2 = line_directions2 /  np.linalg.norm(line_directions2, axis = 1)[:, None]
 
   sample_viability = (np.abs(np.sum(line_directions1 * line_directions2, axis = 1)) <= 0.8)
-  # print(sample_viability)
+  if np.sum(sample_viability) == 0:
+    return None
 
   coords1 = coords1[sample_viability, :]
   coords2 = coords2[sample_viability, :]
@@ -162,7 +165,6 @@ def circle_RANSAC3(points_img, edge_img, rmin, rmax):
   line_directions2 = line_directions2[sample_viability, :]
 
   cs = midpoints1 - midpoints2
-  # print(cs.shape)
 
   As = np.transpose(np.asarray([-np.transpose(line_directions1), np.transpose(line_directions2)]), (2, 1, 0))
 
@@ -171,13 +173,11 @@ def circle_RANSAC3(points_img, edge_img, rmin, rmax):
   results = np.linalg.solve(As, cs)
   # print(results.shape)
   centers = (midpoints1 + line_directions1 * results[:, 0, None] + midpoints2 + line_directions2 * results[:, 1, None]) / 2.0
-  # print(centers.shape)
   radii = (np.linalg.norm(centers - coords1, axis = 1) + np.linalg.norm(centers - coords2, axis = 1) + np.linalg.norm(centers - coords3, axis = 1)) / 3.0
   # print(radii.shape)
   distances_to_centers = np.transpose(np.linalg.norm(centers - coords[:, None, :], axis = 2))
   # print(distances_to_centers.shape)
   distance_within_rad = np.logical_and(distances_to_centers <= radii[:, None] + 1.0, distances_to_centers >= radii[:, None] - 1.0)
-  # print(distance_within_rad.shape)
   score = np.sum(distance_within_rad, axis = 1)
   # print(score)
   winner = np.argmax(score)

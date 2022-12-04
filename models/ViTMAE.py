@@ -90,6 +90,7 @@ class MaskedAutoencoderViT(nn.Module):
             Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
             for i in range(depth)])
         self.norm = norm_layer(embed_dim)
+        self.lin = torch.nn.Linear(embed_dim, embed_dim)
         # --------------------------------------------------------------------------
 
         # --------------------------------------------------------------------------
@@ -219,6 +220,7 @@ class MaskedAutoencoderViT(nn.Module):
         for blk in self.blocks:
             x = blk(x)
         x = self.norm(x)
+        x = self.lin(x)
 
         return x, mask, ids_restore
 
