@@ -66,7 +66,10 @@ class ConvDecoder(nn.Module):
 
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 45a679b3d9b379127cf4416a941dbbd9e40ac005
 class AutoEncoder(nn.Module):
 
     def __init__(self, config):
@@ -79,10 +82,13 @@ class AutoEncoder(nn.Module):
         x = self.decoder(x)
         return x
 
+<<<<<<< HEAD
     def forward_encoder(self, x):
         x = self.encoder(x)
         return x
 
+=======
+>>>>>>> 45a679b3d9b379127cf4416a941dbbd9e40ac005
 
 class AE():
     def __init__(self, config):
@@ -122,4 +128,8 @@ class AE():
             return loss
 
         loss_fn = loss_fn_bce if self.config['loss'] == 'bce' else loss_fn_mse
+<<<<<<< HEAD
         train_(train_dataloader, val_dataloader, loss_fn, metric_fns, self)
+=======
+        train_(train_dataloader, val_dataloader, loss_fn, metric_fns, self)
+>>>>>>> 45a679b3d9b379127cf4416a941dbbd9e40ac005

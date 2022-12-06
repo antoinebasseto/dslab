@@ -16,6 +16,7 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from torch.utils.data import Dataset
 
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -77,6 +78,7 @@ def create_dataset_images(video, project_path, image_path, droplet_table_path, a
     return break_points
 
 
+
 def normalized(a, axis=-1, order=2):
     l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
     l2[l2 == 0] = 1
@@ -127,6 +129,7 @@ class FolderDataset(Dataset):
         image = np.vectorize(self.convert_to_float)(image)
         image = normalized(image, 1)
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB).transpose()
+
         # image = image.astype(np.float32)
 
         if self.transform is not None:
@@ -135,9 +138,11 @@ class FolderDataset(Dataset):
             tensor_image = torch.tensor(image)
 
         else:
-            feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/vit-mae-base")
-            tensor_image = feature_extractor(images = Image.fromarray(image.astype(float)*255, 'RGB'), return_tensors = 'pt')
+            #feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/vit-mae-base")
+
+            #tensor_image = feature_extractor(images = Image.fromarray(image.astype(float)*255, 'RGB'), return_tensors = 'pt')
             #print(tensor_image.shape)
+            tensor_image = torch.tensor(image)
 
         # tensor_image = torch.nn.functional.normalize(tensor_image, 1)
 

@@ -70,8 +70,12 @@ def main() -> None:
 
     #if create_data set to true, config file should include a droplet table path and a path to the image (nd2)
     if config['create_data']:
+<<<<<<< HEAD
         break_points = create_dataset_images(args.experiment, PROJECT_PATH, config["image_path"], config["droplet_table_path"])
         config["break_points"] = break_points
+=======
+            create_dataset_images(args.experiment, PROJECT_PATH, config["image_path"], config["droplet_table_path"])
+>>>>>>> 45a679b3d9b379127cf4416a941dbbd9e40ac005
 
     if config['model'] == "ConvAE":
         if "checkpoint" in config:

@@ -14,6 +14,9 @@ import numpy as np
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
 PROJECT_PATH = Path(PROJECT_PATH)
+import numpy as np
+
+PROJECT_PATH = Path(os.path.dirname(__file__))
 EXPERIMENTS_PATH = Path(PROJECT_PATH / "experiments")
 
 
@@ -33,13 +36,26 @@ def find_dataset_breaks(num_frames, dataset):
     return breaks
 
 
+def tracking(embeddings, id, caller):
+    num_frames = caller.config["num_frames"] - 1
+    index = id_to_index(id)
+    track = [id]
+    breaks = find_dataset_breaks(num_frames)
+    for i in range(num_frames - 1):
+        track += [compute_similar_images(index, embeddings[breaks[i]:breaks[i + 1]], caller)]
+    return track
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=
                                      """
+Load an experiment checkpoint and use it to generate a submission. Store the submission
+in the experiment directory as 'submission.csv'.
 """)
-    parser.add_argument("experiments", nargs='+', type=str,
+    parser.add_argument("experiments", type=str,
                         help=f"list of experiments whose predictions you want to average into a submission.")
+    parser.add_argument("id", type=int)
+
     args = parser.parse_args()
     print(args.experiments)
     for experiment in args.experiments:
@@ -72,7 +88,6 @@ def main() -> None:
         embeddings = np.concatenate((indexes, embeddings), axis=1)
         np.save("embeddings_smallmovement1.npy", embeddings)
         print(indexes.shape)
-
 
 if __name__ == "__main__":
     main()

@@ -90,8 +90,6 @@ class MaskedAutoencoderViT(nn.Module):
             Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
             for i in range(depth)])
         self.norm = norm_layer(embed_dim)
-
-
         # --------------------------------------------------------------------------
 
         # --------------------------------------------------------------------------
@@ -202,6 +200,7 @@ class MaskedAutoencoderViT(nn.Module):
 
         return x_masked, mask, ids_restore
 
+
     def forward_encoder(self, x, mask_ratio=0.25):
         # embed patches
         x = self.patch_embed(x)
@@ -268,7 +267,7 @@ class MaskedAutoencoderViT(nn.Module):
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         return loss
 
-    def forward(self, imgs, mask_ratio=0.70):
+    def forward(self, imgs, mask_ratio=0.25):
         latent, mask, ids_restore = self.forward_encoder(imgs, mask_ratio)
         pred = self.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
         loss = self.forward_loss(imgs, pred, mask)

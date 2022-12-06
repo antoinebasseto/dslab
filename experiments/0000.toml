@@ -1,8 +1,21 @@
 #Test
 
 [config]
-model = "DeepRanking"
+model = "ConvAE"
+create_data = false
+image_path = "data/Smallmvt1.nd2"
+droplet_table_path = "utils/droplets_and_cells/finished_outputs/smallMovement1_droplets_idtest1.csv"
+train_dataset = 'data/0'
+val_dataset = 'data/1'
+num_frames = 8
+img_size = [1, 100, 100]
+conv_layers = [32, 64, 128, 256, 512]
+loss = 'MSE'
+epochs = 200
 learning_rate = 0.1
-train_dataset = 'google_maps_dataset_100'
-val_dataset = 'training'
+steps_per_checkpoint = 500
+steps_per_validation = 500
+batch_size = 32
+num_images = 1
+tensorboard = false
 seed = 123456

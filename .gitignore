@@ -167,6 +167,7 @@ events.*
 # Default ignored files
 /shelf/
 /workspace.xml
+data/
 # Editor-based HTTP Client requests
 /httpRequests/
 # Datasource local storage ignored files
