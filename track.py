@@ -13,7 +13,7 @@ from models.ViTMAE import ViTMAE
 import numpy as np
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
-PROJECT_PATH = Path(PROJECT_PATH + "/..")
+PROJECT_PATH = Path(PROJECT_PATH)
 EXPERIMENTS_PATH = Path(PROJECT_PATH / "experiments")
 
 
@@ -62,12 +62,12 @@ def main() -> None:
         #embeddings = create_embeddings(device, train_dataloader, config, model.model)
         embeddings = np.load("embeddings.npy")
         np.save("embeddings.npy", embeddings)
+        embeddings = embeddings[:, :, :3]
+        embeddings = embeddings.reshape((embeddings.shape[0], embeddings.shape[1]*embeddings.shape[2]))
         print(embeddings.shape)
         indexes = np.array([0,0])
         for i in os.listdir(config["train_dataset"]):
-            print(i)
-            print(i[0])
-            indexes = np.vstack((indexes, np.array([i[0], i[1:5]])))
+            indexes = np.vstack((indexes, np.array([i[1], i[4:8]])))
         indexes = indexes[1:, :]
         embeddings = np.concatenate((indexes, embeddings), axis=1)
         np.save("embeddings_smallmovement1.npy", embeddings)

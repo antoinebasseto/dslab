@@ -1,6 +1,7 @@
 # Results folder
 results/*
 !results/.gitkeep
+*.npy
 
 # Data
 data/01_raw/*

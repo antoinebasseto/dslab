@@ -92,7 +92,7 @@ def create_embeddings(device, dataloader, config, model):
         pbar = tqdm(dataloader)
         for train_img, target_img in pbar:
             train_img = train_img.to(device)
-            loss, enc_output, mask = model.forward_encoder(train_img)
+            enc_output, mask, loss = model.forward_encoder(train_img)
             enc_output = enc_output.cpu()
             embedding = torch.cat((embedding, enc_output), 0)
 
@@ -123,7 +123,7 @@ class FolderDataset(Dataset):
     def __getitem__(self, idx):
         img_loc = os.path.join(self.main_dir, self.all_imgs[idx])
         image = np.load(img_loc)[0, :, :]
-        image = image.reshape((100, 100))
+        image = image.reshape((64, 64))
         image = np.vectorize(self.convert_to_float)(image)
         image = normalized(image, 1)
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB).transpose()

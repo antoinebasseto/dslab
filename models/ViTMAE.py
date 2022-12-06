@@ -71,7 +71,7 @@ class MaskedAutoencoderViT(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
 
-    def __init__(self, img_size=100, patch_size=10, in_chans=3,
+    def __init__(self, img_size=64, patch_size=8, in_chans=3,
                  embed_dim=1024, depth=24, num_heads=16,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False):
@@ -90,7 +90,8 @@ class MaskedAutoencoderViT(nn.Module):
             Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
             for i in range(depth)])
         self.norm = norm_layer(embed_dim)
-        self.lin = torch.nn.Linear(embed_dim, embed_dim)
+
+
         # --------------------------------------------------------------------------
 
         # --------------------------------------------------------------------------
@@ -220,7 +221,6 @@ class MaskedAutoencoderViT(nn.Module):
         for blk in self.blocks:
             x = blk(x)
         x = self.norm(x)
-        x = self.lin(x)
 
         return x, mask, ids_restore
 
@@ -281,7 +281,7 @@ class ViTMAE():
         self.step = 1
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'  # automatically select device
         self.model = MaskedAutoencoderViT(
-        patch_size=10, embed_dim=128, depth=12, num_heads=8,
+        patch_size=8, embed_dim=64, depth=12, num_heads=8,
         decoder_embed_dim=256, decoder_depth=8, decoder_num_heads=16,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6)).to(self.device)
 
