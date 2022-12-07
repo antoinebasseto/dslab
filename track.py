@@ -49,45 +49,40 @@ def tracking(embeddings, id, caller):
 def main() -> None:
     parser = argparse.ArgumentParser(description=
                                      """
-Load an experiment checkpoint and use it to generate a submission. Store the submission
-in the experiment directory as 'submission.csv'.
-""")
-    parser.add_argument("experiments", type=str,
-                        help=f"list of experiments whose predictions you want to average into a submission.")
-    parser.add_argument("id", type=int)
-
+                                     Train an experiment and save it as a checkpoint
+                                     """)
+    parser.add_argument("experiment", type=str, help=f"ID of the experiment.")
     args = parser.parse_args()
-    print(args.experiments)
-    for experiment in args.experiments:
-        config = toml.load(EXPERIMENTS_PATH / f"{experiment}.toml")["config"]
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        checkpoint = torch.load(config["checkpoint"], map_location=device)
-        print(config['model'])
-        if config['model'] == "ConvAE":
-            model = AE(config)
-            model.model.load_state_dict(checkpoint['model_state_dict'])
-        elif config['model'] == 'VitMae':
-            model = ViTMAE(config)
-            model.model.load_state_dict(checkpoint['model_state_dict'])
-        else:
-            raise Exception(f"Unknown model {config['model']}")
-        transforms = None
-        train_dataset = FolderDataset(config["train_dataset"], transforms)
-        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
+    config = toml.load(EXPERIMENTS_PATH / f"{args.experiment}.toml")["config"]
 
-        #embeddings = create_embeddings(device, train_dataloader, config, model.model)
-        embeddings = np.load("embeddings.npy")
-        np.save("embeddings.npy", embeddings)
-        embeddings = embeddings[:, :, :3]
-        embeddings = embeddings.reshape((embeddings.shape[0], embeddings.shape[1]*embeddings.shape[2]))
-        print(embeddings.shape)
-        indexes = np.array([0,0])
-        for i in os.listdir(config["train_dataset"]):
-            indexes = np.vstack((indexes, np.array([i[1], i[4:8]])))
-        indexes = indexes[1:, :]
-        embeddings = np.concatenate((indexes, embeddings), axis=1)
-        np.save("embeddings_smallmovement1.npy", embeddings)
-        print(indexes.shape)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    checkpoint = torch.load(config["checkpoint"], map_location=device)
+    print(config['model'])
+    if config['model'] == "ConvAE":
+        model = AE(config)
+        model.model.load_state_dict(checkpoint['model_state_dict'])
+    elif config['model'] == 'VitMae':
+        model = ViTMAE(config)
+        model.model.load_state_dict(checkpoint['model_state_dict'])
+    else:
+        raise Exception(f"Unknown model {config['model']}")
+    transforms = None
+    train_dataset = FolderDataset(config["train_dataset"], transforms)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
+
+    embeddings = create_embeddings(device, train_dataloader, config, model.model)
+    #embeddings = np.load("embeddings.npy")
+    np.save("embeddings.npy", embeddings)
+    embeddings = embeddings[:, :, :3]
+    embeddings = embeddings.reshape((embeddings.shape[0], embeddings.shape[1]*embeddings.shape[2]))
+    print(embeddings.shape)
+    indexes = np.array([0,0])
+    for i in os.listdir(config["train_dataset"]):
+        indexes = np.vstack((indexes, np.array([i[1], i[4:8]])))
+    indexes = indexes[1:, :]
+    embeddings = np.concatenate((indexes, embeddings), axis=1)
+    np.save("embeddings_smallmovement1.npy", embeddings)
+    print(indexes.shape)
 
 if __name__ == "__main__":
     main()
