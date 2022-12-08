@@ -339,11 +339,13 @@ def solve_assignment_with_sink(edge_exists_mask, cost_matrix, sink_cost_vector):
 
 
 
-'''def droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, bf_image_path, dapi_image_path,tracking_table_path):
-    bf_image = np.load(bf_image_path, allow_pickle = True)
-    dapi_image = np.load(dapi_image_path, allow_pickle = True)
-    image = np.transpose(np.asarray([bf_image, dapi_image]), axes = [1, 0, 2, 3])
-    dataset = create_dataset_cell_enhanced_from_ndarray(None, image, droplet_table_path, cell_table_path, allFrames = True, buffer = -2, suppress_rest = True, suppression_slack = -3) 
+def droplet_linking_feature_based_voting (image_name,FEATURE_PATH,RESULT_PATH):
+    #bf_image = np.load(bf_image_path, allow_pickle = True)
+    #dapi_image = np.load(dapi_image_path, allow_pickle = True)
+    #image = np.transpose(np.asarray([bf_image, dapi_image]), axes = [1, 0, 2, 3])
+    #dataset = create_dataset_cell_enhanced_from_ndarray(None, image, droplet_table_path, cell_table_path, allFrames = True, buffer = -2, suppress_rest = True, suppression_slack = -3)
+    path = Path(FEATURE_PATH / f"fulldataset_{image_name}.npy")
+    dataset = np.load(path, allow_pickle=True)
     better_dataset = []
     for ds in dataset:
         concatenated_df = pd.concat(ds, axis = 1)
@@ -408,7 +410,7 @@ def solve_assignment_with_sink(edge_exists_mask, cost_matrix, sink_cost_vector):
         # Computing these similarities must be done batch-wise because otherwise we use too much memory
         for row_idx, row in tqdm(enumerate(within_dist_mask)):
             similarity_matrix_bf_dapi[row_idx, row, :] = np.sum(image_dataset[this_fr][row_idx, None, :, :, :] * image_dataset[next_fr][None, row, :, :, :], axis = (3, 4))
-            similarity_matrix_bf_dapi[row_idx, row, :] /= np.sqrt(np.sum((image_dataset[this_fr][row_idx, :, :, :])**2, axis = (1, 2)))[None, :] * np.sqrt(np.sum((image_dataset[next_fr][row, :, :, :])**2, axis = (2, 3)))[:, :]
+            #similarity_matrix_bf_dapi[row_idx, row, :] /= np.sqrt(np.sum((image_dataset[this_fr][row_idx, :, :, :])**2, axis = (1, 2)))[None, :] * np.sqrt(np.sum((image_dataset[next_fr][row, :, :, :])**2, axis = (2, 3)))[:, :]
         
         #  np.sum(image_dataset[this_fr][:, None, :, :, :] * image_dataset[next_fr][None, :, :, :, :], axis = (3, 4))
 
@@ -501,7 +503,7 @@ def solve_assignment_with_sink(edge_exists_mask, cost_matrix, sink_cost_vector):
 
         # Look at the difference of integrated brightness for every pair of droplets
         intbrightdiff_mat = np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None] - feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :])
-        intbrightdiff_mat /= np.sqrt(np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None]) * np.abs(feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :]))
+        #intbrightdiff_mat /= np.sqrt(np.abs(feature_dataset[this_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[:, None]) * np.abs(feature_dataset[next_fr]['integrated_brightness'].to_numpy(dtype = np.float32)[None, :]))
         # Set droplets out of reach to nan
         intbrightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
         for perc in [0.875]:
@@ -511,13 +513,26 @@ def solve_assignment_with_sink(edge_exists_mask, cost_matrix, sink_cost_vector):
 
         # Look at the difference of maximum brightness for every pair of droplets
         maxbrightdiff_mat = np.abs(feature_dataset[this_fr]['max_brightness'].to_numpy(dtype = np.float32)[:, None] - feature_dataset[next_fr]['max_brightness'].to_numpy(dtype = np.float32)[None, :])
-        maxbrightdiff_mat /= np.sqrt(np.abs(feature_dataset[this_fr]['max_brightness'].to_numpy(dtype = np.float32)[:, None]) * np.abs(feature_dataset[next_fr]['max_brightness'].to_numpy(dtype = np.float32)[None, :]))
+        #maxbrightdiff_mat /= np.sqrt(np.abs(feature_dataset[this_fr]['max_brightness'].to_numpy(dtype = np.float32)[:, None]) * np.abs(feature_dataset[next_fr]['max_brightness'].to_numpy(dtype = np.float32)[None, :]))
         # Set droplets out of reach to nan
         maxbrightdiff_mat[np.logical_not(within_dist_mask)] = np.nan
         for perc in [0.875]:
             # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
             maxbrightdiff_thresh = np.nanquantile(maxbrightdiff_mat, perc, axis = 1)
             voting_bins += (maxbrightdiff_mat <= maxbrightdiff_thresh[:, None]) * 1
+
+        hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog'].values) ** 2, axis=1)
+        hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog'].values) ** 2, axis=1)
+        hog_mat = np.stack(feature_dataset[this_fr]['hog'].values) @ np.stack(feature_dataset[next_fr]['hog'].values).T
+        hog_prev = hog_prev.reshape(-1, 1)
+        hog_dist = hog_prev - 2 * hog_mat + hog_next
+
+        hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        hog_thresh = np.nanquantile(hog_dist, 0.875, axis=1)
+
+        voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
+
+
 
 
         # Set voting bins for matchings that  are out of reach to nan
@@ -548,7 +563,7 @@ def solve_assignment_with_sink(edge_exists_mask, cost_matrix, sink_cost_vector):
 
         # sqdistance_matrix[within_dist_mask] = np.int64(sqdistance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0))
 
-        # distance_matrix[within_dist_mask] = np.int64(distance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0) * (1.0 - bf_corr_mat[within_dist_mask] + 1.0) * (1.0 - dapi_corr_mat[within_dist_mask] + 1.0))
+        #distance_matrix[within_dist_mask] = np.int64(distance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0) * (1.0 - bf_corr_mat[within_dist_mask] + 1.0) * (1.0 - dapi_corr_mat[within_dist_mask] + 1.0) * hog_dist[within_dist_mask])
 
         print("")
         # assigned, sinked = solve_assignment_with_sink(validity_mask, sqdistance_matrix, np.ones((validity_mask.shape[0],), dtype = np.int32) * maximal_distance ** 2)
@@ -597,7 +612,11 @@ def solve_assignment_with_sink(edge_exists_mask, cost_matrix, sink_cost_vector):
 
         # assert(False)
     tracking_df = pd.DataFrame(out)
-    tracking_df.to_csv(tracking_table_path, index = False)'''
+    result_feature_path = Path(RESULT_PATH / f"voting_tracking_{image_name}.csv")
+    tracking_df.to_csv(result_feature_path, index=False)
+    path = Path(FEATURE_PATH / f"droplets_{image_name}.csv")
+    droplet_table = pd.read_csv(path)
+    create_final_output(droplet_table, tracking_df, nr_frames, RESULT_PATH, image_name)
 
 
 def linking(image_name,FEATURE_PATH,RESULT_PATH):
@@ -690,7 +709,7 @@ def linking(image_name,FEATURE_PATH,RESULT_PATH):
                                                                                        'radius'].to_numpy(
                 dtype=np.int32)[None, :])
         #validity_mask *= (radiusdiff_mat <= 3) * 1
-        # radiusdiff_thresh = np.quantile(radiusdiff_mat, quantile_level, axis = 1)
+        radiusdiff_thresh = np.quantile(radiusdiff_mat, quantile_level_matching, axis = 1)
         validity_mask *= (radiusdiff_mat <= radiusdiff_thresh[:, None]) * 1
 
         bf_corr_mat = similarity_matrix_bf_dapi[:, :, 0]
@@ -783,6 +802,7 @@ def create_final_output(droplet_table,tracking_table,nr_frames,RESULT_PATH,image
     traj = trajectory_expand_droplets(droplet_table, tracking_table, nr_frames)
     grp = list(traj.groupby(['trajectory_id']))
     final = np.zeros((len(grp), 2*nr_frames+1))
+    final[:] = np.nan
     for i in range(len(grp)):
         final[i][0] = i
         tmp = grp[i][1]
@@ -797,7 +817,9 @@ def create_final_output(droplet_table,tracking_table,nr_frames,RESULT_PATH,image
 
     result = pd.DataFrame(final, columns=cols)
 
-    result_feature_path = Path(RESULT_PATH / f"hog_dist_results_{image_name}.csv")
+    result_feature_path = Path(RESULT_PATH / f"voting_results_{image_name}.csv")
+    #result.dropna(thresh=0.5, axis=0, inplace=True)
+    result.dropna(inplace=True)
     result.to_csv(result_feature_path, index=False)
 
 
