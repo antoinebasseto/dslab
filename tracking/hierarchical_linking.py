@@ -41,10 +41,13 @@ def compute_droplet_statistics (droplet_entry):
         # ans['mean_sig_intens'] = 0
         # ans['std_sig_intens'] = 0
     winSize = (64, 64)
-    blockSize = (64, 64)
-    blockStride = (16, 16)
-    cellSize = (16, 16)
-    patch = np.uint8(resize_patch(droplet_entry['patch'], 64) / 256)
+    blockSize = (16, 16)
+    blockStride = (8, 8)
+    cellSize = (8, 8)
+    # print(resize_patch(droplet_entry['patch'], 64).dtype)
+    # print(np.max(resize_patch(droplet_entry['patch'], 64)))
+    # assert(False)
+    patch = np.uint8(resize_patch(droplet_entry['patch'], 64) // 256)
     hog = cv.HOGDescriptor(_winSize=winSize, _blockSize=blockSize, _blockStride=blockStride, _cellSize=cellSize, _nbins=9)
     vec1 = hog.compute(patch[0, :, :])
     vec2 = hog.compute(patch[1, :, :])
@@ -1104,7 +1107,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         voting_bins[np.logical_not(within_dist_mask)] = np.nan
         # For every droplet, look at the 50% of droplets in the next frame that are within range and that have the most votes.
         #  Those are the droplets wit which we allow a matching. All other possible matchings get discarded
-        vote_threshold_per_droplet = np.nanquantile(voting_bins, 0.8, axis = 1)
+        vote_threshold_per_droplet = np.nanquantile(voting_bins, 0.5, axis = 1)
         # Create a mask of which matchings are allowed based on voting
         validity_mask = (voting_bins >= vote_threshold_per_droplet[:, None]) * 1
         # Set validity_mask for matchings that are out of reach to 0.
