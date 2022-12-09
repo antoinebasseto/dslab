@@ -337,7 +337,7 @@ def solve_assignment_with_sink(edge_exists_mask, cost_matrix, sink_cost_vector):
     tracking_df.to_csv(tracking_table_path, index = False)'''
         
 
-
+"""
 
 def droplet_linking_feature_based_voting (image_name,FEATURE_PATH,RESULT_PATH):
     #bf_image = np.load(bf_image_path, allow_pickle = True)
@@ -617,7 +617,7 @@ def droplet_linking_feature_based_voting (image_name,FEATURE_PATH,RESULT_PATH):
     path = Path(FEATURE_PATH / f"droplets_{image_name}.csv")
     droplet_table = pd.read_csv(path)
     create_final_output(droplet_table, tracking_df, nr_frames, RESULT_PATH, image_name)
-
+"""
 
 def linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = False):
     '''dataset = create_dataset_cell_enhanced(None, ["BF", "DAPI"], image_path, droplet_table_path, cell_table_path,
@@ -1042,6 +1042,34 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         # print(feature_dataset[next_fr]['hog'].values.shape)
         # print(feature_dataset[next_fr]['hog'].values[0].shape)
         # assert(False)
+        
+
+
+        # Hog for BF channel
+        hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog_bf'].values) ** 2, axis=1)
+        hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog_bf'].values) ** 2, axis=1)
+        hog_mat = np.stack(feature_dataset[this_fr]['hog_bf'].values) @ np.stack(feature_dataset[next_fr]['hog_bf'].values).T
+        hog_prev = hog_prev.reshape(-1, 1)
+        hog_dist = hog_prev - 2 * hog_mat + hog_next
+        hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        for perc in [0.2, 0.4, 0.6, 0.8]:
+            # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+            hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
+            voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
+
+        # Hog for DAPI channel
+        hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog_dapi'].values) ** 2, axis=1)
+        hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog_dapi'].values) ** 2, axis=1)
+        hog_mat = np.stack(feature_dataset[this_fr]['hog_dapi'].values) @ np.stack(feature_dataset[next_fr]['hog_dapi'].values).T
+        hog_prev = hog_prev.reshape(-1, 1)
+        hog_dist = hog_prev - 2 * hog_mat + hog_next
+        hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        for perc in [0.2, 0.4, 0.6, 0.8]:
+            # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+            hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
+            voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
+
+        """
         hog_prev = np.stack(feature_dataset[this_fr]['hog_bf'].values)
         hog_next = np.stack(feature_dataset[next_fr]['hog_bf'].values)
         for j in range(hog_prev.shape[1] // 9):
@@ -1065,6 +1093,11 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
                 # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
                 hogdiff_thresh = np.nanquantile(diffmat_hog, perc, axis = 1)
                 voting_bins += (diffmat_hog <= hogdiff_thresh[:, None]) * 1
+        """
+
+        # Embeddings: Somehow use feature_dataset[this_fr]['embedding'] and feature_dataset[next_fr]['embedding']
+
+
 
         # Set voting bins for matchings that  are out of reach to nan
         voting_bins = np.float32(voting_bins)
