@@ -56,6 +56,7 @@ def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLE
     print("Detecting droplets and cells...")
     droplet_feature_path = Path(FEATURE_PATH / f"droplets_{image_name}.csv")
     cell_feature_path = Path(FEATURE_PATH / f"cells_{image_name}.csv")
+    # generate_output_from_ndarray(preprocessed_image, droplet_feature_path, cell_feature_path, True, str(PREPROCESSED_PATH) + "/", True)
     generate_output_from_ndarray(preprocessed_image, droplet_feature_path, cell_feature_path, True, "", False)
 
     print("Image preprocessing for feature extraction ...")
