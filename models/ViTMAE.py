@@ -280,8 +280,8 @@ class ViTMAE():
         self.step = 1
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'  # automatically select device
         self.model = MaskedAutoencoderViT(
-        patch_size=8, embed_dim=64, depth=12, num_heads=8,
-        decoder_embed_dim=256, decoder_depth=8, decoder_num_heads=16,
+        patch_size=8, embed_dim=4, depth=12, num_heads=4,
+        decoder_embed_dim=256, decoder_depth=8, decoder_num_heads=4,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6)).to(self.device)
 
         self.optimizer = torch.optim.Adam(self.model.parameters())

@@ -95,6 +95,7 @@ def create_embeddings(device, dataloader, config, model):
         for train_img, target_img in pbar:
             train_img = train_img.to(device)
             enc_output, mask, loss = model.forward_encoder(train_img)
+            #print(enc_output.shape)
             enc_output = enc_output.cpu()
             embedding = torch.cat((embedding, enc_output), 0)
 
@@ -112,7 +113,7 @@ class FolderDataset(Dataset):
     def __init__(self, main_dir, transform=None, feat=False):
         self.main_dir = main_dir
         self.transform = transform
-        self.all_imgs = os.listdir(main_dir)
+        self.all_imgs = sorted(os.listdir(main_dir))
         self.feat = feat
 
     def __len__(self):

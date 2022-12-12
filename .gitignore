@@ -2,6 +2,7 @@
 results/*
 !results/.gitkeep
 *.npy
+*.csv
 
 # Data
 data/01_raw/*

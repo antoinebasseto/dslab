@@ -2,6 +2,7 @@ import argparse
 import os
 import toml
 import joblib
+import pandas as pd
 import re
 from pathlib import Path
 from glob import glob
@@ -17,7 +18,9 @@ PROJECT_PATH = Path(PROJECT_PATH)
 import numpy as np
 
 PROJECT_PATH = Path(os.path.dirname(__file__))
+DATA_PATH = Path(PROJECT_PATH / "data")
 EXPERIMENTS_PATH = Path(PROJECT_PATH / "experiments")
+FEATURE_PATH = Path(DATA_PATH / "03_features")
 
 
 def index_to_id(index):
@@ -71,17 +74,18 @@ def main() -> None:
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
 
     embeddings = create_embeddings(device, train_dataloader, config, model.model)
-    #embeddings = np.load("embeddings.npy")
     np.save("embeddings.npy", embeddings)
-    embeddings = embeddings[:, :, :3]
+    embeddings = embeddings
     embeddings = embeddings.reshape((embeddings.shape[0], embeddings.shape[1]*embeddings.shape[2]))
     print(embeddings.shape)
     indexes = np.array([0,0])
-    for i in os.listdir(config["train_dataset"]):
+    for i in sorted(os.listdir(config["train_dataset"])):
+        print(i[4:8])
         indexes = np.vstack((indexes, np.array([i[1], i[4:8]])))
+        #print(np.array([i[1], i[4:8]]))
     indexes = indexes[1:, :]
     embeddings = np.concatenate((indexes, embeddings), axis=1)
-    np.save("embeddings_smallmovement1.npy", embeddings)
+    pd.DataFrame(embeddings).to_csv(Path(FEATURE_PATH/ f"embeddings_{config['image_name']}.csv"))
     print(indexes.shape)
 
 if __name__ == "__main__":
