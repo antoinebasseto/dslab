@@ -41,18 +41,40 @@ def compute_droplet_statistics (droplet_entry):
         # ans['mean_sig_intens'] = 0
         # ans['std_sig_intens'] = 0
     winSize = (64, 64)
-    blockSize = (16, 16)
-    blockStride = (8, 8)
-    cellSize = (8, 8)
+    blockSize = (64, 64)
+    blockStride = (64, 64)
+    cellSize = (32, 32)
     # print(resize_patch(droplet_entry['patch'], 64).dtype)
     # print(np.max(resize_patch(droplet_entry['patch'], 64)))
     # assert(False)
     patch = np.uint8(resize_patch(droplet_entry['patch'], 64) // 256)
-    hog = cv.HOGDescriptor(_winSize=winSize, _blockSize=blockSize, _blockStride=blockStride, _cellSize=cellSize, _nbins=9)
-    vec1 = hog.compute(patch[0, :, :])
-    vec2 = hog.compute(patch[1, :, :])
-    ans['hog_bf'] = vec1
-    ans['hog_dapi'] = vec2
+    hog1 = cv.HOGDescriptor(_winSize=winSize, _blockSize=blockSize, _blockStride=blockStride, _cellSize=cellSize, _nbins=9)
+    vec1 = hog1.compute(patch[0, :, :])
+    vec2 = hog1.compute(patch[1, :, :])
+    ans['hog1_bf'] = vec1
+    ans['hog1_dapi'] = vec2
+
+
+    # winSize = (64, 64)
+    # blockSize = (64, 64)
+    # blockStride = (64, 64)
+    # cellSize = (64, 64)
+    # hog2 = cv.HOGDescriptor(_winSize=winSize, _blockSize=blockSize, _blockStride=blockStride, _cellSize=cellSize, _nbins=9)
+    # vec1 = hog2.compute(patch[0, :, :])
+    # vec2 = hog2.compute(patch[1, :, :])
+    # ans['hog2_bf'] = vec1
+    # ans['hog2_dapi'] = vec2
+
+
+    # winSize = (64, 64)
+    # blockSize = (64, 64)
+    # blockStride = (64, 64)
+    # cellSize = (16, 16)
+    # hog3 = cv.HOGDescriptor(_winSize=winSize, _blockSize=blockSize, _blockStride=blockStride, _cellSize=cellSize, _nbins=9)
+    # vec1 = hog3.compute(patch[0, :, :])
+    # vec2 = hog3.compute(patch[1, :, :])
+    # ans['hog3_bf'] = vec1
+    # ans['hog3_dapi'] = vec2
     #ans['hog'] = vec1
 
     return ans
@@ -829,10 +851,15 @@ def create_final_output(droplet_table,tracking_table,nr_frames,RESULT_PATH,image
 
 
 
-def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = False):
+def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = False, similarity_weight = 0.5, max_dist = 250, vicinity_weight = 0.0, movement_variability = 1.0):
     '''dataset = create_dataset_cell_enhanced(None, ["BF", "DAPI"], image_path, droplet_table_path, cell_table_path,
                                            allFrames=True, buffer=-2, suppress_rest=True, suppression_slack=-3,
                                            median_filter_preprocess=True)'''
+
+    sample_image = np.load(str(FEATURE_PATH) + "/../02_preprocessed/preprocessed_featextr_bf_" + image_name + ".npy")
+    num_rows = sample_image.shape[1]
+    num_cols = sample_image.shape[2]
+
     path = Path(FEATURE_PATH / f"fulldataset_{image_name}.npy")
     dataset = np.load(path, allow_pickle=True)
     embedding_path = Path(FEATURE_PATH / f"embeddings_{image_name}.npy")
@@ -904,7 +931,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         next_fr = this_fr + 1
 
         # Maximal distance allowed for two droplets to be matched
-        maximal_distance = 250
+        maximal_distance = max_dist
 
         # An integer matrix which at the end, will contain in entry i,j the number of votes that favor linking droplet i from the previous frame to droplet j in the next frame.
         # The votes will come from features
@@ -914,7 +941,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         distance_matrix = np.asarray([feature_dataset[this_fr]['center_row'].to_numpy(dtype = np.float64), feature_dataset[this_fr]['center_col'].to_numpy(dtype = np.float64)]).transpose()
         distance_matrix = np.linalg.norm(distance_matrix[:, None, :] - np.asarray([feature_dataset[next_fr]['center_row'].to_numpy(dtype = np.float64), feature_dataset[next_fr]['center_col'].to_numpy(dtype = np.float64)]).transpose()[None, :, :], axis = 2)
         # Square distance in case we need it
-        sqdistance_matrix = np.int64(distance_matrix ** 2)
+        # sqdistance_matrix = np.int64(distance_matrix ** 2)
         # A boolean mask that tells us if two droplets in the two subsequent frames are within range of each other
         within_dist_mask = (distance_matrix <= maximal_distance)
 
@@ -926,6 +953,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
             similarity_matrix_bf_dapi[row_idx, row, :] = np.sum(image_dataset[this_fr][row_idx, None, :, :, :] * image_dataset[next_fr][None, row, :, :, :], axis = (3, 4))
             similarity_matrix_bf_dapi[row_idx, row, :] /= np.sqrt(np.sum((image_dataset[this_fr][row_idx, :, :, :])**2, axis = (1, 2)))[None, :] * np.sqrt(np.sum((image_dataset[next_fr][row, :, :, :])**2, axis = (2, 3)))[:, :]
         similarity_matrix_bf_dapi[np.isnan(similarity_matrix_bf_dapi)] = 0.0
+        
         #  np.sum(image_dataset[this_fr][:, None, :, :, :] * image_dataset[next_fr][None, :, :, :, :], axis = (3, 4))
 
 
@@ -1049,28 +1077,76 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
 
 
         # Hog for BF channel
-        hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog_bf'].values) ** 2, axis=1)
-        hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog_bf'].values) ** 2, axis=1)
-        hog_mat = np.stack(feature_dataset[this_fr]['hog_bf'].values) @ np.stack(feature_dataset[next_fr]['hog_bf'].values).T
-        hog_prev = hog_prev.reshape(-1, 1)
-        hog_dist = hog_prev - 2 * hog_mat + hog_next
-        hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        hog1_prev = np.sum(np.stack(feature_dataset[this_fr]['hog1_bf'].values) ** 2, axis=1)
+        hog1_next = np.sum(np.stack(feature_dataset[next_fr]['hog1_bf'].values) ** 2, axis=1)
+        hog1_mat = np.stack(feature_dataset[this_fr]['hog1_bf'].values) @ np.stack(feature_dataset[next_fr]['hog1_bf'].values).T
+        hog1_prev = hog1_prev.reshape(-1, 1)
+        hog1_dist = hog1_prev - 2 * hog1_mat + hog1_next
+        hog1_dist[np.logical_not(within_dist_mask)] = np.nan
         for perc in [0.2, 0.4, 0.6, 0.8]:
             # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
-            hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
-            voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
+            hog1_thresh = np.nanquantile(hog1_dist, perc, axis = 1)
+            voting_bins += (hog1_dist <= hog1_thresh[:, None]) * 1
 
         # Hog for DAPI channel
-        hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog_dapi'].values) ** 2, axis=1)
-        hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog_dapi'].values) ** 2, axis=1)
-        hog_mat = np.stack(feature_dataset[this_fr]['hog_dapi'].values) @ np.stack(feature_dataset[next_fr]['hog_dapi'].values).T
-        hog_prev = hog_prev.reshape(-1, 1)
-        hog_dist = hog_prev - 2 * hog_mat + hog_next
-        hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        hog2_prev = np.sum(np.stack(feature_dataset[this_fr]['hog1_dapi'].values) ** 2, axis=1)
+        hog2_next = np.sum(np.stack(feature_dataset[next_fr]['hog1_dapi'].values) ** 2, axis=1)
+        hog2_mat = np.stack(feature_dataset[this_fr]['hog1_dapi'].values) @ np.stack(feature_dataset[next_fr]['hog1_dapi'].values).T
+        hog2_prev = hog2_prev.reshape(-1, 1)
+        hog2_dist = hog2_prev - 2 * hog2_mat + hog2_next
+        hog2_dist[np.logical_not(within_dist_mask)] = np.nan
         for perc in [0.2, 0.4, 0.6, 0.8]:
             # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
-            hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
-            voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
+            hog2_thresh = np.nanquantile(hog2_dist, perc, axis = 1)
+            voting_bins += (hog2_dist <= hog2_thresh[:, None]) * 1
+
+        # # Hog for BF channel
+        # hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog2_bf'].values) ** 2, axis=1)
+        # hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog2_bf'].values) ** 2, axis=1)
+        # hog_mat = np.stack(feature_dataset[this_fr]['hog2_bf'].values) @ np.stack(feature_dataset[next_fr]['hog2_bf'].values).T
+        # hog_prev = hog_prev.reshape(-1, 1)
+        # hog_dist = hog_prev - 2 * hog_mat + hog_next
+        # hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        # for perc in [0.33, 0.66]:
+        #     # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+        #     hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
+        #     voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
+
+        # # Hog for DAPI channel
+        # hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog2_dapi'].values) ** 2, axis=1)
+        # hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog2_dapi'].values) ** 2, axis=1)
+        # hog_mat = np.stack(feature_dataset[this_fr]['hog2_dapi'].values) @ np.stack(feature_dataset[next_fr]['hog2_dapi'].values).T
+        # hog_prev = hog_prev.reshape(-1, 1)
+        # hog_dist = hog_prev - 2 * hog_mat + hog_next
+        # hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        # for perc in [0.33, 0.66]:
+        #     # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+        #     hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
+        #     voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
+
+        # # Hog for BF channel
+        # hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog3_bf'].values) ** 2, axis=1)
+        # hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog3_bf'].values) ** 2, axis=1)
+        # hog_mat = np.stack(feature_dataset[this_fr]['hog3_bf'].values) @ np.stack(feature_dataset[next_fr]['hog3_bf'].values).T
+        # hog_prev = hog_prev.reshape(-1, 1)
+        # hog_dist = hog_prev - 2 * hog_mat + hog_next
+        # hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        # for perc in [0.5]:
+        #     # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+        #     hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
+        #     voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
+
+        # # Hog for DAPI channel
+        # hog_prev = np.sum(np.stack(feature_dataset[this_fr]['hog3_dapi'].values) ** 2, axis=1)
+        # hog_next = np.sum(np.stack(feature_dataset[next_fr]['hog3_dapi'].values) ** 2, axis=1)
+        # hog_mat = np.stack(feature_dataset[this_fr]['hog3_dapi'].values) @ np.stack(feature_dataset[next_fr]['hog3_dapi'].values).T
+        # hog_prev = hog_prev.reshape(-1, 1)
+        # hog_dist = hog_prev - 2 * hog_mat + hog_next
+        # hog_dist[np.logical_not(within_dist_mask)] = np.nan
+        # for perc in [0.5]:
+        #     # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+        #     hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
+        #     voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
 
         """
         hog_prev = np.stack(feature_dataset[this_fr]['hog_bf'].values)
@@ -1107,7 +1183,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         voting_bins[np.logical_not(within_dist_mask)] = np.nan
         # For every droplet, look at the 50% of droplets in the next frame that are within range and that have the most votes.
         #  Those are the droplets wit which we allow a matching. All other possible matchings get discarded
-        vote_threshold_per_droplet = np.nanquantile(voting_bins, 0.5, axis = 1)
+        vote_threshold_per_droplet = np.nanquantile(voting_bins, similarity_weight, axis = 1)
         # Create a mask of which matchings are allowed based on voting
         validity_mask = (voting_bins >= vote_threshold_per_droplet[:, None]) * 1
         # Set validity_mask for matchings that are out of reach to 0.
@@ -1130,13 +1206,26 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
 
         # sqdistance_matrix[within_dist_mask] = np.int64(sqdistance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0))
 
-        distance_matrix[within_dist_mask] = np.int64(distance_matrix[within_dist_mask] * (maxbrightdiff_mat[within_dist_mask] + 1.0) * (intbrightdiff_mat[within_dist_mask] + 1.0) * (1.0 - bf_corr_mat[within_dist_mask] + 1.0) * (1.0 - dapi_corr_mat[within_dist_mask] + 1.0))
+        distance_matrix[within_dist_mask] = np.power(distance_matrix[within_dist_mask], movement_variability) * \
+                                            (vicinity_weight + (1.0 - vicinity_weight) * ((maxbrightdiff_mat[within_dist_mask] + 1.0) * \
+                                            (intbrightdiff_mat[within_dist_mask] + 1.0) * \
+                                            (1.0 - bf_corr_mat[within_dist_mask] + 1.0) * \
+                                            (1.0 - dapi_corr_mat[within_dist_mask] + 1.0) * \
+                                            (hog2_dist[within_dist_mask] + 1.0) * \
+                                            (hog1_dist[within_dist_mask] + 1.0)))
+
+
+        # dist_to_boundary = np.min(np.asarray([feature_dataset[this_fr]['center_row'], num_rows - feature_dataset[this_fr]['center_row'], feature_dataset[this_fr]['center_col'], num_cols - feature_dataset[this_fr]['center_col']]), axis = 0)
+        # print(np.max(dist_to_boundary))
+        # print(np.min(dist_to_boundary))
+        # cost_to_bin = np.minimum(np.power(dist_to_boundary, movement_variability) * (10 - 10 * vicinity_weight), maximal_distance**movement_variability) #* (10 - 10 * vicinity_weight)
+        cost_to_bin = np.ones((validity_mask.shape[0],)) * maximal_distance**movement_variability
 
         print("")
         # assigned, sinked = solve_assignment_with_sink(validity_mask, sqdistance_matrix, np.ones((validity_mask.shape[0],), dtype = np.int32) * maximal_distance ** 2)
         
         # Here we do some weird scaling shenanigans because the flow optimization algorithm used only accepts integer cost.
-        assigned, sinked = solve_assignment_with_sink(validity_mask, np.int64(distance_matrix * 10), np.ones((validity_mask.shape[0],), dtype = np.int32) * maximal_distance * 10)
+        assigned, sinked = solve_assignment_with_sink(validity_mask, np.int64(distance_matrix * 100), np.int64(cost_to_bin * 100))
         print("Number of assignments found: " + str(assigned.shape[0]))
         print("Number of unassigned droplets: " + str(sinked.size))
 
