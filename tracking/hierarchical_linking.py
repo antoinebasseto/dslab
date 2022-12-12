@@ -644,7 +644,7 @@ def droplet_linking_feature_based_voting (image_name,FEATURE_PATH,RESULT_PATH):
     create_final_output(droplet_table, tracking_df, nr_frames, RESULT_PATH, image_name)
 """
 
-def linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = False):
+def linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = True):
     '''dataset = create_dataset_cell_enhanced(None, ["BF", "DAPI"], image_path, droplet_table_path, cell_table_path,
                                            allFrames=True, buffer=-2, suppress_rest=True, suppression_slack=-3,
                                            median_filter_preprocess=True)'''
@@ -862,10 +862,10 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
 
     path = Path(FEATURE_PATH / f"fulldataset_{image_name}.npy")
     dataset = np.load(path, allow_pickle=True)
-    embedding_path = Path(FEATURE_PATH / f"embeddings_{image_name}.npy")
+    embedding_path = Path(FEATURE_PATH / f"embeddings_{image_name}.csv")
     embedding_dataset = None
     if use_embeddings:
-        embedding_dataset = np.int32(np.asarray(np.load(embedding_path, allow_pickle=True), dtype = np.float64))
+        embedding_dataset = pd.read_csv(embedding_path)
         # print(embedding_dataset)
         # print(embedding_dataset.shape)
     better_dataset = []
@@ -884,8 +884,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         embeddings_this_frame = None
         if embedding_dataset is not None:
             # print(embedding_dataset[:, 0])
-            embeddings_this_frame = embedding_dataset[embedding_dataset[:, 0] == frame_number + 1, :]
-            # print(embeddings_this_frame.shape)
+            embeddings_this_frame = embedding_dataset[embedding_dataset['0'] == frame_number]
             # print(embeddings_this_frame.shape[0])
             # print(ds.shape[0])
             # assert(False)
@@ -907,7 +906,8 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
 
             embedding_this_droplet = None
             if embeddings_this_frame is not None:
-                tmp['embedding'] = embeddings_this_frame[embeddings_this_frame[:, 1] == row['droplet_id'], 2:].flatten()
+                tmp['embedding'] = embeddings_this_frame[embeddings_this_frame['1'] == row['droplet_id']].iloc[:, 2:].to_numpy().flatten()
+                #print(tmp['embedding'].shape)
             # cv.imshow("test", tmp2[iterator, 0, :, :] / np.max(tmp2[iterator, 0, :, :]))
             # cv.waitKey(0)
             # cv.imshow("test", tmp2[iterator, 1, :, :])
@@ -1023,6 +1023,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         # validity_mask *= (radiusdiff_mat <= 3) * 1
         # radiusdiff_thresh = np.quantile(radiusdiff_mat, quantile_level, axis = 1)
         # validity_mask *= (radiusdiff_mat <= radiusdiff_thresh[:, None]) * 1
+
         
         # Look at the correlations between droplets in the brightfield channel
         bf_corr_mat = similarity_matrix_bf_dapi[:, :, 0]
@@ -1148,6 +1149,26 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         #     hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
         #     voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
 
+        print(feature_dataset[this_fr]['embedding'][0].shape[0])
+        dl_prev = np.zeros((feature_dataset[this_fr]['embedding'].shape[0], feature_dataset[this_fr]['embedding'][0].shape[0]))
+        for i in range(feature_dataset[this_fr]['embedding'].shape[0]):
+            if feature_dataset[this_fr]['embedding'][i].shape == (0,):
+                continue
+            dl_prev[i, :] = feature_dataset[this_fr]['embedding'][i]
+        dl_next = np.zeros((feature_dataset[next_fr]['embedding'].shape[0], feature_dataset[next_fr]['embedding'][0].shape[0]))
+        for i in range(feature_dataset[next_fr]['embedding'].shape[0]):
+            if feature_dataset[next_fr]['embedding'][i].shape == (0,):
+                # No idea why this is happening, need to figure out
+                continue
+            dl_next[i, :] = feature_dataset[next_fr]['embedding'][i]
+        similarity_matrix_dl = np.zeros((dl_prev.shape[0], dl_next.shape[0]))
+        for row_idx, row in tqdm(enumerate(within_dist_mask)):
+            similarity_matrix_dl[row_idx, row] = np.sum((dl_prev[row_idx, :] - dl_next[row, :]) ** 2, axis=1)
+        similarity_matrix_dl /= similarity_matrix_dl.max()
+        for perc in [0.2, 0.4, 0.6, 0.8]:
+            # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+            similarity_matrix_dl_thresh = np.nanquantile(similarity_matrix_dl, perc, axis=1)
+            voting_bins += (similarity_matrix_dl >= similarity_matrix_dl_thresh[:, None]) * 1
         """
         hog_prev = np.stack(feature_dataset[this_fr]['hog_bf'].values)
         hog_next = np.stack(feature_dataset[next_fr]['hog_bf'].values)
