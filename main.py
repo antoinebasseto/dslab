@@ -19,12 +19,14 @@ PREPROCESSED_PATH = Path(DATA_PATH / "02_preprocessed")
 FEATURE_PATH = Path(DATA_PATH / "03_features")
 DROPLET_PATH = Path(DATA_PATH / "04_droplet")
 RESULT_PATH = Path(DATA_PATH/ "05_results")
+EXPERIMENT_PATH = Path(PROJECT_PATH / "experiments")
 
 parser = argparse.ArgumentParser(description=
                                  """
                                  Generate data from raw.
                                  """)
 parser.add_argument("raw_image", type=str, help=f"ND2 image file name")
+parser.add_argument("-g", action='store_true', help=f"Generate Embeddings")
 parser.add_argument("-s",action='store_true', help=f"Skip dataset generation")
 parser.add_argument("-e",action='store_true', help=f"Use embeddings")
 args = parser.parse_args()
@@ -34,9 +36,12 @@ image_name = args.raw_image[:-4].lower().replace(' ', '_')
 
 skip_dataset = args.s
 use_embeddings = args.e
+if not args.g:
+    EXPERIMENT_PATH = None
+
 if not skip_dataset:
     print("----Creating Preprocessed Dataset----")
-    #populate(raw_image_path,image_name,FEATURE_PATH,PREPROCESSED_PATH,DROPLET_PATH)
+    populate(raw_image_path,image_name,FEATURE_PATH,PREPROCESSED_PATH,DROPLET_PATH, EXPERIMENT_PATH)
 print("----Applying Tracking Methods----")
 print("feature path", FEATURE_PATH)
 vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings=True)

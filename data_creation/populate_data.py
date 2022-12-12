@@ -1,10 +1,16 @@
 import os
 import argparse
+import re
 from pathlib import Path
 import numpy as np
+import toml
+import pandas as pd
+import torch
 from preprocessing.preprocessing import preprocess
 from preprocessing.preprocessing import preprocess_alt_franc
 from preprocessing.preprocessing import preprocess_alt_featextr
+from utils.models_common import create_embeddings, FolderDataset
+from models.ViTMAE import ViTMAE
 from data_creation.droplets_and_cells import generate_output
 from data_creation.droplets_and_cells import generate_output_from_ndarray
 from data_creation.droplet_retriever import create_dataset_from_ndarray, resize_patch, create_dataset_cell_enhanced, create_dataset_cell_ndarray, create_dataset_cell_enhanced_from_ndarray
@@ -50,7 +56,7 @@ def save_droplet_images(dataset: np.ndarray, image_name: str, DROPLET_PATH: Path
             patch[np.isnan(patch)] = 0.0
             np.save(Path(folder_path / ("f" + str(i) + "_d" + str(j).zfill(4))), patch)
 
-def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLET_PATH, omit_droplet_dataset = False) -> None:
+def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLET_PATH, EXPERIMENT_PATH = None, omit_droplet_dataset = False) -> None:
     print("Image preprocessing for droplet detection ...")
     preprocessed_image = raw_to_preprocessed_alt_franc(raw_image_path, image_name, PREPROCESSED_PATH)
     print("Detecting droplets and cells...")
@@ -70,6 +76,37 @@ def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLE
         np.save(path, droplet_images_dataset)
     else:
         print("Omitting droplet dataset creation...")
+
+    if EXPERIMENT_PATH is not None:
+        print("Creating Embeddings")
+        config = toml.load(EXPERIMENT_PATH / "0003.toml")["config"]
+
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        checkpoint = torch.load(config["checkpoint"], map_location=device)
+
+        model = ViTMAE(config)
+        model.model.load_state_dict(checkpoint['model_state_dict'])
+
+        transforms = None
+        train_dataset = FolderDataset(Path(DROPLET_PATH, f"{image_name}"), transforms)
+        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
+
+        embeddings = create_embeddings(device, train_dataloader, config, model.model)
+        embeddings = embeddings.reshape((embeddings.shape[0], embeddings.shape[1] * embeddings.shape[2]))
+        indexes = np.array([0,0])
+        marker1, marker2, marker3 = 'f', '_d', '.npy'
+        regex1 = marker1 + '(.+?)' + marker2
+        regex2 = marker2 + '(.+?)' + marker3
+        for i in sorted(os.listdir(Path(DROPLET_PATH, f"{image_name}"))):
+            frame = int(re.search(regex1, i).group(1))
+            droplet_id = int(re.search(regex2, i).group(1))
+            indexes = np.vstack((indexes, np.array([frame, droplet_id])))
+
+        indexes = indexes[1:, :]
+        embeddings = np.concatenate((indexes, embeddings), axis=1)
+        pd.DataFrame(embeddings).to_csv(Path(FEATURE_PATH / f"embeddings_{image_name}.csv"))
+
+
 
 
     # print("Preprocessing raw image...")
