@@ -15,8 +15,6 @@ from tqdm import tqdm
 
 def get_image_as_ndarray(frames, channels, path_to_image, allFrames = True, allChannels = False):
 
-
-
     f = nd2.ND2File(path_to_image)
 
     nr_frames = f.sizes['T']
