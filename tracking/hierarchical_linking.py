@@ -851,7 +851,7 @@ def create_final_output(droplet_table,tracking_table,nr_frames,RESULT_PATH,image
 
 
 
-def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = False, similarity_weight = 0.5, max_dist = 250, vicinity_weight = 0.0, movement_variability = 1.0):
+def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = False, similarity_weight = 0.5, max_dist = 250, vicinity_weight = 0.5, movement_variability = 1.0):
     '''dataset = create_dataset_cell_enhanced(None, ["BF", "DAPI"], image_path, droplet_table_path, cell_table_path,
                                            allFrames=True, buffer=-2, suppress_rest=True, suppression_slack=-3,
                                            median_filter_preprocess=True)'''
@@ -865,9 +865,13 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
     embedding_path = Path(FEATURE_PATH / f"embeddings_{image_name}.csv")
     embedding_dataset = None
     if use_embeddings:
-        embedding_dataset = pd.read_csv(embedding_path)
+        embedding_dataset = pd.read_csv(embedding_path, header=None)
+        # embedding_dataset.to_csv(embedding_path, header=None, index=None)
+        # assert(False)
+        # print(embedding_dataset)
         # print(embedding_dataset)
         # print(embedding_dataset.shape)
+        # assert(False)
     better_dataset = []
     for ds in dataset:
         concatenated_df = pd.concat(ds, axis=1)
@@ -883,9 +887,11 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         tmp2 = np.zeros((ds.shape[0], 2, 40, 40), dtype=np.float64)
         embeddings_this_frame = None
         if embedding_dataset is not None:
-            # print(embedding_dataset[:, 0])
-            embeddings_this_frame = embedding_dataset[embedding_dataset['0'] == frame_number]
-            # print(embeddings_this_frame.shape[0])
+            # print(embedding_dataset.iloc[:, 0])
+            # print(embedding_dataset.iloc[:, 0].shape)
+            # assert(False)
+            embeddings_this_frame = embedding_dataset[embedding_dataset.iloc[:, 0] == frame_number]
+            # print(embeddings_this_frame.shape)
             # print(ds.shape[0])
             # assert(False)
             # print(embeddings_this_frame)
@@ -906,8 +912,11 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
 
             embedding_this_droplet = None
             if embeddings_this_frame is not None:
-                tmp['embedding'] = embeddings_this_frame[embeddings_this_frame['1'] == row['droplet_id']].iloc[:, 2:].to_numpy().flatten()
-                #print(tmp['embedding'].shape)
+                tmp['embedding'] = embeddings_this_frame[embeddings_this_frame.iloc[:, 1] == row['droplet_id']].iloc[:, 2:].to_numpy().flatten()
+                # print(tmp['embedding'].shape[0])
+                assert(tmp['embedding'].shape[0] == 196)
+                # print(tmp['embedding'].shape)
+                # assert(False)
             # cv.imshow("test", tmp2[iterator, 0, :, :] / np.max(tmp2[iterator, 0, :, :]))
             # cv.waitKey(0)
             # cv.imshow("test", tmp2[iterator, 1, :, :])
@@ -915,6 +924,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
             iterator += 1
             tmp1.append(tmp)
         tmp1 = pd.DataFrame(tmp1)
+        # print(tmp1.shape)
         feature_dataset.append(tmp1)
         image_dataset.append(tmp2)
         frame_number += 1
@@ -949,7 +959,7 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         # Correlation here literally means linear correlation / convolution
         similarity_matrix_bf_dapi = np.zeros((image_dataset[this_fr].shape[0], image_dataset[next_fr].shape[0], 2), dtype = np.float64)
         # Computing these similarities must be done batch-wise because otherwise we use too much memory
-        for row_idx, row in tqdm(enumerate(within_dist_mask)):
+        for row_idx, row in enumerate(within_dist_mask):
             similarity_matrix_bf_dapi[row_idx, row, :] = np.sum(image_dataset[this_fr][row_idx, None, :, :, :] * image_dataset[next_fr][None, row, :, :, :], axis = (3, 4))
             similarity_matrix_bf_dapi[row_idx, row, :] /= np.sqrt(np.sum((image_dataset[this_fr][row_idx, :, :, :])**2, axis = (1, 2)))[None, :] * np.sqrt(np.sum((image_dataset[next_fr][row, :, :, :])**2, axis = (2, 3)))[:, :]
         similarity_matrix_bf_dapi[np.isnan(similarity_matrix_bf_dapi)] = 0.0
@@ -1149,26 +1159,58 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
         #     hog_thresh = np.nanquantile(hog_dist, perc, axis = 1)
         #     voting_bins += (hog_dist <= hog_thresh[:, None]) * 1
 
-        print(feature_dataset[this_fr]['embedding'][0].shape[0])
-        dl_prev = np.zeros((feature_dataset[this_fr]['embedding'].shape[0], feature_dataset[this_fr]['embedding'][0].shape[0]))
-        for i in range(feature_dataset[this_fr]['embedding'].shape[0]):
-            if feature_dataset[this_fr]['embedding'][i].shape == (0,):
-                continue
-            dl_prev[i, :] = feature_dataset[this_fr]['embedding'][i]
-        dl_next = np.zeros((feature_dataset[next_fr]['embedding'].shape[0], feature_dataset[next_fr]['embedding'][0].shape[0]))
-        for i in range(feature_dataset[next_fr]['embedding'].shape[0]):
-            if feature_dataset[next_fr]['embedding'][i].shape == (0,):
-                # No idea why this is happening, need to figure out
-                continue
-            dl_next[i, :] = feature_dataset[next_fr]['embedding'][i]
-        similarity_matrix_dl = np.zeros((dl_prev.shape[0], dl_next.shape[0]))
-        for row_idx, row in tqdm(enumerate(within_dist_mask)):
-            similarity_matrix_dl[row_idx, row] = np.sum((dl_prev[row_idx, :] - dl_next[row, :]) ** 2, axis=1)
-        similarity_matrix_dl /= similarity_matrix_dl.max()
+        # print(feature_dataset[this_fr]['embedding'][0].shape[0])
+        # dl_prev = np.zeros((feature_dataset[this_fr]['embedding'].shape[0], feature_dataset[this_fr]['embedding'][0].shape[0]))
+        # for i in range(feature_dataset[this_fr]['embedding'].shape[0]):
+        #     if feature_dataset[this_fr]['embedding'][i].shape == (0,):
+        #         continue
+        #     dl_prev[i, :] = feature_dataset[this_fr]['embedding'][i]
+        # dl_next = np.zeros((feature_dataset[next_fr]['embedding'].shape[0], feature_dataset[next_fr]['embedding'][0].shape[0]))
+        # for i in range(feature_dataset[next_fr]['embedding'].shape[0]):
+        #     if feature_dataset[next_fr]['embedding'][i].shape == (0,):
+        #         # No idea why this is happening, need to figure out
+        #         continue
+        #     dl_next[i, :] = feature_dataset[next_fr]['embedding'][i]
+        # print(feature_dataset[this_fr]['embedding'].values)
+        # print(feature_dataset[next_fr]['embedding'].values)
+        # print(np.stack(feature_dataset[this_fr]['embedding'].values).shape)
+        # print(np.stack(feature_dataset[next_fr]['embedding'].values).shape)
+        # assert(False)
+        # print(feature_dataset[this_fr]['embedding'].shape)
+        # print(feature_dataset[next_fr]['embedding'].shape)
+        dl_prev = np.stack(feature_dataset[this_fr]['embedding'].values)
+        dl_next = np.stack(feature_dataset[next_fr]['embedding'].values)
+
+        # print(dl_prev.shape)
+        # print(dl_next.shape)
+        # assert(False)
+        diffmat_dl = np.zeros((dl_prev.shape[0], dl_next.shape[0]), dtype = np.float64)
+        for row_idx, row in enumerate(dl_prev):
+            diffmat_dl[row_idx, :] = np.linalg.norm(row[None, :] - dl_next, axis = 1)
+        diffmat_dl[np.logical_not(within_dist_mask)] = np.nan
         for perc in [0.2, 0.4, 0.6, 0.8]:
-            # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
-            similarity_matrix_dl_thresh = np.nanquantile(similarity_matrix_dl, perc, axis=1)
-            voting_bins += (similarity_matrix_dl >= similarity_matrix_dl_thresh[:, None]) * 1
+            dl_thresh = np.nanquantile(diffmat_dl, perc, axis=1)
+            voting_bins += (diffmat_dl <= dl_thresh[:, None]) * 1
+
+
+        # for feat_idx in range(dl_prev.shape[1]):
+        #     diffmat_dl = np.abs(dl_prev[:, None, feat_idx] - dl_next[None, :, feat_idx])
+        #     # print(diffmat_dl.shape)
+        #     # print(within_dist_mask.shape)
+        #     diffmat_dl[np.logical_not(within_dist_mask)] = np.nan
+        #     dl_thresh = np.nanquantile(diffmat_dl, 0.5, axis=1)
+        #     voting_bins += (diffmat_dl <= dl_thresh[:, None]) * 1
+
+
+
+        # similarity_matrix_dl = np.zeros((dl_prev.shape[0], dl_next.shape[0]), dtype = np.float64)
+        # for row_idx, row in tqdm(enumerate(within_dist_mask)):
+        #     similarity_matrix_dl[row_idx, row] = np.sum((dl_prev[row_idx, :] - dl_next[row, :]) ** 2, axis=1)
+        # similarity_matrix_dl /= similarity_matrix_dl.max()
+        # for perc in [0.2, 0.4, 0.6, 0.8]:
+        #     # Give a vote if droplet in next frame is amongst top k% best matches for dropet in this frame
+        #     similarity_matrix_dl_thresh = np.nanquantile(similarity_matrix_dl, perc, axis=1)
+        #     voting_bins += (similarity_matrix_dl >= similarity_matrix_dl_thresh[:, None]) * 1
         """
         hog_prev = np.stack(feature_dataset[this_fr]['hog_bf'].values)
         hog_next = np.stack(feature_dataset[next_fr]['hog_bf'].values)
@@ -1231,16 +1273,17 @@ def vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings = Fal
                                             (vicinity_weight + (1.0 - vicinity_weight) * ((maxbrightdiff_mat[within_dist_mask] + 1.0) * \
                                             (intbrightdiff_mat[within_dist_mask] + 1.0) * \
                                             (1.0 - bf_corr_mat[within_dist_mask] + 1.0) * \
-                                            (1.0 - dapi_corr_mat[within_dist_mask] + 1.0) * \
-                                            (hog2_dist[within_dist_mask] + 1.0) * \
-                                            (hog1_dist[within_dist_mask] + 1.0)))
+                                            (1.0 - dapi_corr_mat[within_dist_mask] + 1.0))) #* \
+                                            # (hog2_dist[within_dist_mask] + 1.0) * \
+                                            # (hog1_dist[within_dist_mask] + 1.0) * \
+                                            # (diffmat_dl[within_dist_mask] + 1.0)))
 
 
         # dist_to_boundary = np.min(np.asarray([feature_dataset[this_fr]['center_row'], num_rows - feature_dataset[this_fr]['center_row'], feature_dataset[this_fr]['center_col'], num_cols - feature_dataset[this_fr]['center_col']]), axis = 0)
         # print(np.max(dist_to_boundary))
         # print(np.min(dist_to_boundary))
         # cost_to_bin = np.minimum(np.power(dist_to_boundary, movement_variability) * (10 - 10 * vicinity_weight), maximal_distance**movement_variability) #* (10 - 10 * vicinity_weight)
-        cost_to_bin = np.ones((validity_mask.shape[0],)) * maximal_distance**movement_variability
+        cost_to_bin = np.ones((validity_mask.shape[0],)) * maximal_distance**movement_variability * (10 - 10 * vicinity_weight)
 
         print("")
         # assigned, sinked = solve_assignment_with_sink(validity_mask, sqdistance_matrix, np.ones((validity_mask.shape[0],), dtype = np.int32) * maximal_distance ** 2)

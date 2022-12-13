@@ -85,7 +85,7 @@ def main() -> None:
         #print(np.array([i[1], i[4:8]]))
     indexes = indexes[1:, :]
     embeddings = np.concatenate((indexes, embeddings), axis=1)
-    pd.DataFrame(embeddings).to_csv(Path(FEATURE_PATH/ f"embeddings_{config['image_name']}.csv"))
+    pd.DataFrame(embeddings).to_csv(Path(FEATURE_PATH/ f"embeddings_{config['image_name']}.csv"), index=False, header=False)
     print(indexes.shape)
 
 if __name__ == "__main__":
