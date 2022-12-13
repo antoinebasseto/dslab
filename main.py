@@ -19,13 +19,15 @@ PREPROCESSED_PATH = Path(DATA_PATH / "02_preprocessed")
 FEATURE_PATH = Path(DATA_PATH / "03_features")
 DROPLET_PATH = Path(DATA_PATH / "04_droplet")
 RESULT_PATH = Path(DATA_PATH/ "05_results")
+EXPERIMENT_PATH = Path(PROJECT_PATH / "experiments")
 
 parser = argparse.ArgumentParser(description=
                                  """
                                  Generate data from raw.
                                  """)
 parser.add_argument("raw_image", type=str, help=f"ND2 image file name")
-parser.add_argument("-s",action='store_true', help=f"Skip dataset generation. Defautt is false")
+parser.add_argument("-g", action='store_true', help=f"Generate Embeddings")
+parser.add_argument("-s",action='store_true', help=f"Skip dataset generation. Default is false")
 parser.add_argument("-ne",action='store_true', help=f"Dont use embeddings. Default is false")
 parser.add_argument('--similarity_weight', type=float, help='a number between 0 and 1. 1 means we only link droplets if they have exactly the same features. 0 means we allow linking of droplets even if they look very different. Default is 0.5')
 parser.add_argument('--vicinity_weight', type=float, help='a number between 0 and 1. 1 means we prefer only spacial vicinity. 0 means we consider spacial vicinity and visual similarity. Default is 0.5')
@@ -41,9 +43,12 @@ use_embeddings = args.ne
 if use_embeddings is None:
     use_embeddings = False
 use_embeddings = not use_embeddings
+if not args.g:
+    EXPERIMENT_PATH = None
+
 if not skip_dataset:
     print("----Creating Preprocessed Dataset----")
-    populate(raw_image_path,image_name,FEATURE_PATH,PREPROCESSED_PATH,DROPLET_PATH)
+    populate(raw_image_path,image_name,FEATURE_PATH,PREPROCESSED_PATH,DROPLET_PATH, EXPERIMENT_PATH)
 similarity_weight = args.similarity_weight
 max_dist = args.max_dist
 vicinity_weight = args.vicinity_weight
