@@ -9,23 +9,57 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.path import Path as matplotlibPath
 from matplotlib.widgets import LassoSelector
+from matplotlib.lines import Line2D
+import matplotlib.cm as cm
 
 PROJECT_PATH = Path(os.getcwd())
 DATA_PATH = Path(PROJECT_PATH / "data")
 RESULT_PATH = Path(DATA_PATH/ "05_results")
 
 SAVE_KEY = "c"
+SWAPPING_KEY = "a"
+CONFIRMATION_KEY = "enter"
+
+# Auxilliary stuff for being able to swap edges
+swap_mode = False
+selected_for_swapping = []
+selected_for_swapping_frames = []
+auxilliary_swap_lines_drawn = []
+auxilliary_swap_lines= []
+
+# Global variables needed in order to update the dataset from inside the callback functions
+results_df_x = None
+results_df_y = None 
+results_df = None
+all_lines = None
+
 
 def select_trajectories(image_path, results_path, image_name):
-    results_df = pd.read_csv(results_path)
-    results_df = results_df.replace(0, np.nan)
-    results_df = results_df.dropna()
+    # Muste declare to use the global variables
+    global results_df_x
+    global results_df_y
+    global results_df
+    global all_lines
+
+
+    # Int32 is a special pandas datatype, which is a integer 32 bit datatype plus it can have value NAN
+    results_df = pd.read_csv(results_path, dtype="Int32")
+
+    # There is no real need to drop the NA rows
+    # results_df = results_df.replace(0, np.nan)
+    # results_df = results_df.dropna()
     results_df['discard'] = False
 
-    results_df_x = results_df[[i for i in results_df.columns if str(i).startswith("x")]]
-    results_df_y = results_df[[i for i in results_df.columns if str(i).startswith("y")]]
+    results_df_x = results_df[[i for i in results_df.columns if str(i).startswith("x")]].astype(np.float32)
+    results_df_y = results_df[[i for i in results_df.columns if str(i).startswith("y")]].astype(np.float32)
 
-    plt.plot(results_df_y.T, results_df_x.T, color="C0", marker=".", linewidth=1)
+
+    # Store lines for later manipulation
+    all_lines = plt.plot(results_df_x.T, results_df_y.T, color="C0", marker=".", linewidth=1, picker=True, pickradius=5)
+
+    # Give all lines information abotu which trajecotry they are
+    for idx, line in enumerate(all_lines):
+        plt.setp(line, gid = str(idx))
 
     # Load the image and plot each frame
     image = get_image_as_ndarray(None, ["BF"], image_path, allFrames = True, allChannels = False)
@@ -38,18 +72,74 @@ def select_trajectories(image_path, results_path, image_name):
 
         frames.append(f)
 
+    # Define callback for clicking on a line (or other thing)
+    def pickline(event):
+        # Muste declare to use the global variables
+        global selected_for_swapping
+        global selected_for_swapping_frames
+        global auxilliary_swap_lines_drawn
+        global auxilliary_swap_lines
+
+        # If we clicked a line
+        if isinstance(event.artist, Line2D):
+            thisline = event.artist
+            xdata = thisline.get_xdata()
+            ydata = thisline.get_ydata()
+            # Get trajectory id and frame 
+            prev_frame = int(min(event.ind))
+            traj_id = int(plt.getp(thisline, "gid"))
+            if swap_mode:
+
+                # If we clicked on teh same line twice, do nothing because we cant swap tracking within one trajectory
+                if (len(selected_for_swapping) > 0 and selected_for_swapping[-1] == traj_id):
+                    print("Invalid selection. Latest selected line is part of the same trajectory as the currently selected one.")
+                    return
+
+                # Datastrcutures to memorize the last two valid lines we clicked
+                auxilliary_swap_lines.append(thisline)
+                selected_for_swapping.append(traj_id)
+                selected_for_swapping_frames.append(prev_frame)
+                auxilliary_swap_lines_drawn.append(plt.plot(xdata[[prev_frame, prev_frame + 1]], ydata[[prev_frame, prev_frame + 1]], color="lime", marker=".", linewidth=1))
+
+                # If we have more than two line selected, discard the oldest selected line
+                if (len(selected_for_swapping) > 2):
+                    auxilliary_swap_lines_drawn[0][0].remove()
+                    auxilliary_swap_lines_drawn = auxilliary_swap_lines_drawn[-2:]
+                    auxilliary_swap_lines = auxilliary_swap_lines[-2:]
+                    selected_for_swapping = selected_for_swapping[-2:]
+                    selected_for_swapping_frames = selected_for_swapping_frames[-2:]
+                print("Trajectories registered for swapping: ", selected_for_swapping, " in frames ", selected_for_swapping_frames)
+
+                # We only allow swapping tracking between the same frames (since we are sure about in which frame what happened).
+                # Hence, if the operator selects two lines that are in different frames, adjust such that we select two lines from the trajectories selected, which are both
+                #  in the last frame selected by the operator
+                if (len(selected_for_swapping) == 2 and selected_for_swapping_frames[0] != selected_for_swapping_frames[1]):
+                    print("Line segments selected do not belong to same frame. Frame from last click gets enforced.")
+                    auxilliary_swap_lines_drawn[0][0].remove()
+                    auxilliary_swap_lines_drawn[0] = plt.plot(auxilliary_swap_lines[0].get_xdata()[[prev_frame, prev_frame + 1]], auxilliary_swap_lines[0].get_ydata()[[prev_frame, prev_frame + 1]], color="lime", marker=".", linewidth=1)
+                    selected_for_swapping_frames[0] = selected_for_swapping_frames[1]
+                    print("Trajectories registered for swapping: ", selected_for_swapping, " in frames ", selected_for_swapping_frames)
+                # If we have two lines selected, we are ready to swap
+                if (len(selected_for_swapping) == 2):
+                    print("Ready to swap. Press enter to confirm swap.")
+                plt.gcf().canvas.draw_idle()
+
 
     # Define a callback function that will be called when the user
     # finishes drawing the lasso on the image
     def onselect(verts):
+        global all_lines
         # The "verts" argument contains the coordinates of the
         # points that the user selected with the lasso
         path = matplotlibPath(verts)
-        inside = path.contains_points(results_df[['y1', 'x1']].values)
-        results_df['discard'] = results_df['discard'] | pd.Series(inside, index=results_df.index)
+        inside = path.contains_points(results_df[['x1', 'y1']].astype(np.float32).values)
 
-        # Set the color of the selected points to red
-        plt.plot(results_df_y[results_df["discard"]].T, results_df_x[results_df["discard"]].T, marker='.', color='C1')
+
+        # Set the color of the selected points to orange
+        for idx, value in enumerate(inside):
+            if value:
+                all_lines[idx].set_color('C1')
+        results_df['discard'] = results_df['discard'] | pd.Series(inside, index=results_df.index)
 
         # Redraw the figure
         plt.gcf().canvas.draw_idle()
@@ -57,7 +147,16 @@ def select_trajectories(image_path, results_path, image_name):
     # Define a callback function that will be called when the user
     # presses a key
     def onpress(event):
-        print(f"Pressed {event.key}")
+        global swap_mode
+        global results_df_x
+        global results_df_y
+        global results_df
+        global all_lines
+        global selected_for_swapping
+        global selected_for_swapping_frames
+        global auxilliary_swap_lines_drawn
+        global auxilliary_swap_lines
+        print(f" > Pressed {event.key} < ")
         if event.key == SAVE_KEY:
             # Get the current date and time
             now = datetime.now()
@@ -65,6 +164,14 @@ def select_trajectories(image_path, results_path, image_name):
             save_path = Path(RESULT_PATH / f"results_{image_name}_{now.strftime('%Y-%m-%d-%H-%M-%S')}.csv")
             print(f"Saving new csv at {save_path}...")
             results_df[results_df['discard'] == False].to_csv(save_path)
+        if event.key == SWAPPING_KEY:
+            # Toggle swap mode
+            swap_mode = not swap_mode
+            if swap_mode:
+                print("Swap Mode Enabled")
+            else:
+                print("Swap Mode Disabled")
+            print("Toggled swap mode to " + str(swap_mode))
 
         if event.key in [str(i) for i in range(len(frames))]:
             frames[int(event.key)].set_visible(not frames[int(event.key)].get_visible())
@@ -72,11 +179,44 @@ def select_trajectories(image_path, results_path, image_name):
             # Redraw the figure
             plt.gcf().canvas.draw_idle()
 
+        # Confirm swapping (or other future tool)
+        if event.key == CONFIRMATION_KEY:
+            # If swap tool is currently selected
+            if swap_mode:
+                # If we are able to swap
+                if len(selected_for_swapping) == 2:
+                    print("Swapping...")
+                    # Swap lines in results_df and then recompute results_df_x and results_df_y
+                    tmp = results_df.iloc[selected_for_swapping[0], 1 + 2 * (selected_for_swapping_frames[0] + 1): -1].copy()
+                    results_df.iloc[selected_for_swapping[0], 1 + 2 * (selected_for_swapping_frames[0] + 1): -1] = results_df.iloc[selected_for_swapping[1], 1 + 2 * (selected_for_swapping_frames[0] + 1): -1].copy()
+                    results_df.iloc[selected_for_swapping[1], 1 + 2 * (selected_for_swapping_frames[0] + 1): -1] = tmp
+                    results_df_x = results_df[[i for i in results_df.columns if str(i).startswith("x")]].astype(np.float32)
+                    results_df_y = results_df[[i for i in results_df.columns if str(i).startswith("y")]].astype(np.float32)
+
+                    # Adjust the drawings by udating teh relevant data
+                    for swapped_idx in selected_for_swapping:
+                        all_lines[swapped_idx].set_xdata(results_df_x.iloc[swapped_idx, :].to_numpy().T)
+                        all_lines[swapped_idx].set_ydata(results_df_y.iloc[swapped_idx, :].to_numpy().T)
+                    # Toggle off Swap mode for safety and clean up swapping datastructures
+                    swap_mode = False
+                    print("Swap Mode Disabled")
+                    selected_for_swapping = []
+                    selected_for_swapping_frames = []
+                    for l in auxilliary_swap_lines_drawn:
+                        l[0].remove()
+                    auxilliary_swap_lines_drawn = []
+                    auxilliary_swap_lines= []
+                    plt.gcf().canvas.draw()
+                    plt.gcf().canvas.flush_events()
+                else:
+                    print("Unable to swap. Missing selections.")
+
     # Create the lasso selector and connect it to the image
     selector = LassoSelector(plt.gca(), onselect)
 
     # Listen for keypress events
     plt.gcf().canvas.mpl_connect('key_press_event', onpress)
+    plt.gcf().canvas.mpl_connect('pick_event', pickline)
 
     # Show the plot
     print("Showing the plot...")
@@ -84,6 +224,27 @@ def select_trajectories(image_path, results_path, image_name):
     print("Select trajectories with the mouse to discard them")
     print(f"Press {SAVE_KEY} to save an updated results csv")
     plt.show()
+
+
+# # def look_at_image_singlechannel(img, window_name, path, id):
+# #     instance_id = 0
+# #     tmp_img = combine_into_rgb(None, None, None, img)
+# #     while (True):
+# #         cv.imshow(window_name, tmp_img)
+# #         k = cv.waitKey(0)
+# #         if k == ord('d'):
+# #             print("Destroying Window ...")
+# #             cv.destroyWindow(window_name)
+# #             return
+# #         elif k == ord('p'):
+# #             photoname = window_name + "_" + str(id) + "_" + str(instance_id)
+# #             instance_id = instance_id + 1
+# #             print("Taking Photo with name: " + photoname + " Stored at location: " + path)
+# #             cv.imwrite(path + photoname + ".tiff", tmp_img)
+# #         elif k == ord('n'):
+# #             print("Jump to next image ...")
+# #             return
+# #         cv.destroyWindow(window_name)
 
 
 # This is meant to be a general function for displaying multiple greyscale images as one rgb image with functionality such as color correction and taking photos of the image

@@ -1316,19 +1316,20 @@ def create_final_output(droplet_table,tracking_table,nr_frames,RESULT_PATH,image
     traj = trajectory_expand_droplets(droplet_table, tracking_table, nr_frames)
     grp = list(traj.groupby(['trajectory_id']))
     final = np.zeros((len(grp), 2*nr_frames+1))
+    final[:, :] = np.nan
     for i in range(len(grp)):
         final[i][0] = i
         tmp = grp[i][1]
         for index, row in tmp.iterrows():
-            final[i][2 * row['frame'] + 1] = row['center_row']
-            final[i][2 * row['frame'] + 2] = row['center_col']
+            final[i][2 * row['frame'] + 1] = row['center_col']
+            final[i][2 * row['frame'] + 2] = row['center_row']
 
     cols = ['drop_id']
     for i in range(nr_frames):
         cols.append("x" + str(i + 1))
         cols.append("y" + str(i + 1))
 
-    result = pd.DataFrame(final, columns=cols)
+    result = pd.DataFrame(final, columns=cols, dtype="Int32")
 
     result_feature_path = Path(RESULT_PATH / f"results_{image_name}.csv")
     result.to_csv(result_feature_path, index=False)
