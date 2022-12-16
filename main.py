@@ -29,22 +29,24 @@ parser.add_argument("raw_image", type=str, help=f"ND2 image file name")
 parser.add_argument("-g", action='store_true', help=f"Generate Embeddings")
 parser.add_argument("-s",action='store_true', help=f"Skip dataset generation")
 parser.add_argument("-e",action='store_true', help=f"Use embeddings")
+parser.add_argument("-t", action='store_true', help=f"Train_Model")
 args = parser.parse_args()
 
 raw_image_path = Path(RAW_PATH / args.raw_image)
 image_name = args.raw_image[:-4].lower().replace(' ', '_')
 
 skip_dataset = args.s
-use_embeddings = args.e
-if not args.g:
-    EXPERIMENT_PATH = None
+use_embeddings = not args.e
+generate_embeddings = not args.g
+train_model = args.t
+print("train model", train_model)
 
 if not skip_dataset:
     print("----Creating Preprocessed Dataset----")
-    populate(raw_image_path,image_name,FEATURE_PATH,PREPROCESSED_PATH,DROPLET_PATH, EXPERIMENT_PATH)
+    populate(raw_image_path,image_name,FEATURE_PATH,PREPROCESSED_PATH,DROPLET_PATH, EXPERIMENT_PATH, create_emb = generate_embeddings, train_model = train_model)
 print("----Applying Tracking Methods----")
 print("feature path", FEATURE_PATH)
-vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings=True)
+vote_based_linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings=use_embeddings)
 # linking(image_name,FEATURE_PATH,RESULT_PATH, use_embeddings)
 # droplet_linking_feature_based_voting (droplet_table_path, cell_table_path, bf_image_path, dapi_image_path,tracking_table_path)
 

@@ -71,33 +71,19 @@ Only signals that surpass a certain threshold will be counted towards the "nr_ce
 However, all detected signifcant peaks will be outputted to the `cells.csv` dataset. 
 So combining the "cells" and "droplets" datasets is recommended as they complement each other.
 
-## Training
+## Training and using Deep Learning Features
 
-1. Create a checkpoint.
-   * Train it from scratch by running `python train.py <EXPERIMENT_ID>`. This will create
-   a checkpoint binary of the model with the highest score during training.
-   The checkpoint gets stored to `experiments/<EXPERIMENT_ID>/<RUN>`.
+1. Analysing regular images
+   * In this scenario, no training is needed. Simply running the code via `python main.py` is enough. If embeddings have already been created (if a file called `embeddings_{image_name}.csv` is already present
+   in `data/03_features`), then one can pass the flag `-g` in order not to re-generate the embeddings, and speed up the overall process.
+   Not using embeddings is also possible, by passing the flag `-e`.
 
-## Layout
+2. Using on another dataset
+   * Here two distinct options are possible. If a training dataset is already present (composed of several droplet images), alter the file `experiments/model.toml` and place the training dataset and validation
+   datasets paths in, respectively, `train_dataset` and `val_dataset`. If it is not, the model will be trained on the generated droplet images. While training, under `experiments/{image_name}` a new checkpoint
+   will be created. After the code finishes running, in order to not retrain the model when analysing newer images, replace the path present on `experiments/0003.toml`, in the line
+   checkpoint with the latest present checkpoint. Suppose, for instance that the image name is `smallmovement1`. Then there should be a folder `experiments/smallmovement1/000/_____.pt`. In this scenario,
+   one should then replace `checkpoint={previous value}` with `checkpoint=experiments/smallmovement1/000/_____.pt`.
+   * In order to train a new model, pass the flag `-t` to `python main.py`.
 
-(Change if deemed necessary, just a first suggestion)
-
-```
-.
-├── experiments # stores experiment configuration files 
-│   ├── 0097.toml
-│   ├── ...
-├── models
-│   ├── deepRanking.py  # DeepRanking model
-│   └── svd.py  # svd base approach
-├── notebooks
-│   └── #Add notebooks if deemed necessary
-├── README.md
-├── environment.yml
-├── train.py  # runs experiments
-└── utils
-    ├── dataset.py  # Create datasets 
-    ├── models_common.py  # shared training code for models (if any)
-    ├── visualizer.py  # utility function to visualize results
-    └── processing.py  # various utility functions
-```
+   
