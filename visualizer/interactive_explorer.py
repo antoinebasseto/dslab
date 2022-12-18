@@ -1,6 +1,7 @@
 import cv2 as cv
 import pandas as pd
 import numpy as np
+import math
 from tqdm.auto import tqdm
 from preprocessing.raw_image_reader import get_image_as_ndarray
 import os
@@ -18,6 +19,7 @@ RESULT_PATH = Path(DATA_PATH/ "05_results")
 
 SAVE_KEY = "c"
 SWAPPING_KEY = "a"
+CUTTING_KEY = "w"
 CONFIRMATION_KEY = "enter"
 
 # Auxilliary stuff for being able to swap edges
@@ -26,6 +28,12 @@ selected_for_swapping = []
 selected_for_swapping_frames = []
 auxilliary_swap_lines_drawn = []
 auxilliary_swap_lines= []
+
+# Auxilliary stuff for being able to cut edges
+cut_mode = False
+selected_for_cutting_trajecotry = None
+selected_for_cutting_frame = None
+auxilliary_cut_lines_drawn = None
 
 # Global variables needed in order to update the dataset from inside the callback functions
 results_df_x = None
@@ -75,24 +83,33 @@ def select_trajectories(image_path, results_path, image_name):
     # Define callback for clicking on a line (or other thing)
     def pickline(event):
         # Muste declare to use the global variables
+        global cut_mode
+        global swap_mode
         global selected_for_swapping
         global selected_for_swapping_frames
         global auxilliary_swap_lines_drawn
-        global auxilliary_swap_lines
-
+        global auxilliary_swap_lines 
+        global selected_for_cutting_trajecotry
+        global selected_for_cutting_frame 
+        global auxilliary_cut_lines_drawn     
         # If we clicked a line
         if isinstance(event.artist, Line2D):
             thisline = event.artist
             xdata = thisline.get_xdata()
             ydata = thisline.get_ydata()
+
             # Get trajectory id and frame 
             prev_frame = int(min(event.ind))
             traj_id = int(plt.getp(thisline, "gid"))
-            if swap_mode:
+            
+            # Check that the line is well defined
+            if prev_frame + 1 >= xdata.size or math.isnan(xdata[prev_frame + 1]):
+                return
 
+            if swap_mode:
                 # If we clicked on teh same line twice, do nothing because we cant swap tracking within one trajectory
                 if (len(selected_for_swapping) > 0 and selected_for_swapping[-1] == traj_id):
-                    print("Invalid selection. Latest selected line is part of the same trajectory as the currently selected one.")
+                    print("Invalid selecton. Latest selected line is part of the same trajectory as the currently selected one.")
                     return
 
                 # Datastrcutures to memorize the last two valid lines we clicked
@@ -123,6 +140,17 @@ def select_trajectories(image_path, results_path, image_name):
                 if (len(selected_for_swapping) == 2):
                     print("Ready to swap. Press enter to confirm swap.")
                 plt.gcf().canvas.draw_idle()
+            if cut_mode:
+                # If we already have a line selected, de-select that one
+                if selected_for_cutting_trajecotry is not None:
+                    auxilliary_cut_lines_drawn[0].remove()
+                
+                # Select new line
+                selected_for_cutting_trajecotry = traj_id
+                selected_for_cutting_frame = prev_frame
+                auxilliary_cut_lines_drawn = plt.plot(xdata[[prev_frame, prev_frame + 1]], ydata[[prev_frame, prev_frame + 1]], color="r", marker=".", linewidth=1)
+                print("Trajectory registered for cutting: ", selected_for_cutting_trajecotry, " in frame ", selected_for_cutting_frame)
+                print("Ready to cut. Press enter to confirm cut.")
 
 
     # Define a callback function that will be called when the user
@@ -156,6 +184,10 @@ def select_trajectories(image_path, results_path, image_name):
         global selected_for_swapping_frames
         global auxilliary_swap_lines_drawn
         global auxilliary_swap_lines
+        global cut_mode
+        global selected_for_cutting_trajecotry
+        global selected_for_cutting_frame 
+        global auxilliary_cut_lines_drawn  
         print(f" > Pressed {event.key} < ")
         if event.key == SAVE_KEY:
             # Get the current date and time
@@ -168,10 +200,18 @@ def select_trajectories(image_path, results_path, image_name):
             # Toggle swap mode
             swap_mode = not swap_mode
             if swap_mode:
-                print("Swap Mode Enabled")
+                cut_mode = False
+                print("Swap mode enabled")
             else:
-                print("Swap Mode Disabled")
-            print("Toggled swap mode to " + str(swap_mode))
+                print("Swap mode disabled")
+        if event.key == CUTTING_KEY:
+            # Toggle cutting mode
+            cut_mode = not cut_mode
+            if cut_mode:
+                swap_mode = False
+                print("Cut mode enabled")
+            else:
+                print("Cut mode disabled")
 
         if event.key in [str(i) for i in range(len(frames))]:
             frames[int(event.key)].set_visible(not frames[int(event.key)].get_visible())
@@ -199,7 +239,7 @@ def select_trajectories(image_path, results_path, image_name):
                         all_lines[swapped_idx].set_ydata(results_df_y.iloc[swapped_idx, :].to_numpy().T)
                     # Toggle off Swap mode for safety and clean up swapping datastructures
                     swap_mode = False
-                    print("Swap Mode Disabled")
+                    print("Swap mode toggled off for safety")
                     selected_for_swapping = []
                     selected_for_swapping_frames = []
                     for l in auxilliary_swap_lines_drawn:
@@ -210,6 +250,43 @@ def select_trajectories(image_path, results_path, image_name):
                     plt.gcf().canvas.flush_events()
                 else:
                     print("Unable to swap. Missing selections.")
+            if cut_mode:
+                if selected_for_cutting_trajecotry is None:
+                    print("Unable to cut. Missing selection.")
+                    return
+                print("Cutting...")
+                # Cut lines in results_df and then recompute results_df_x and results_df_y
+                tmp = results_df.iloc[selected_for_cutting_trajecotry, :].copy()
+                tmp[1: 1 + 2 * (selected_for_cutting_frame + 1)] = pd.NA
+                results_df.iloc[selected_for_cutting_trajecotry, 1 + 2 * (selected_for_cutting_frame + 1): -1] = pd.NA
+                results_df.loc[len(results_df.index)] = tmp
+                results_df.iloc[-1, 0] = results_df.iloc[-2, 0] + 1
+                # print(results_df)
+                # print([i for i in results_df.columns if str(i).startswith("x")])
+                # print(results_df[[i for i in results_df.columns if str(i).startswith("x")]])
+                results_df_x = results_df[[i for i in results_df.columns if str(i).startswith("x")]].astype(np.float32)
+                results_df_y = results_df[[i for i in results_df.columns if str(i).startswith("y")]].astype(np.float32)
+                # print(results_df_x.shape)
+                # print(results_df_y.shape)
+
+                # Adjust the drawings by udating teh relevant data and drawing a new line
+                all_lines[selected_for_cutting_trajecotry].set_xdata(results_df_x.iloc[selected_for_cutting_trajecotry, :].to_numpy().T)
+                all_lines[selected_for_cutting_trajecotry].set_ydata(results_df_y.iloc[selected_for_cutting_trajecotry, :].to_numpy().T)
+                # print(results_df_y.iloc[selected_for_cutting_trajecotry, :].to_numpy().T)
+                new_line = plt.plot(results_df_x.iloc[-1, :], results_df_y.iloc[-1, :], color="C0", marker=".", linewidth=1)
+                plt.setp(new_line[0], gid = str(results_df.iloc[-1, 0]))
+                # print(new_line)
+                # print(all_lines)
+                # assert(False)
+                all_lines = all_lines + new_line
+                cut_mode = False
+                print("Cut mode toggled off for safety")
+                auxilliary_cut_lines_drawn[0].remove()
+                selected_for_cutting_trajecotry = None
+                selected_for_cutting_frame = None
+                auxilliary_cut_lines_drawn = None
+                plt.gcf().canvas.draw()
+                plt.gcf().canvas.flush_events()
 
     # Create the lasso selector and connect it to the image
     selector = LassoSelector(plt.gca(), onselect)
@@ -221,8 +298,12 @@ def select_trajectories(image_path, results_path, image_name):
     # Show the plot
     print("Showing the plot...")
     print("---------- VISUALIZER INSTRUCTIONS ----------")
-    print("Select trajectories with the mouse to discard them")
-    print(f"Press {SAVE_KEY} to save an updated results csv")
+    print("Click >left mouse< and drag to select regions of droplets to discard")
+    print(f"Press >{SAVE_KEY}< to save an updated results csv")
+    print(f"Press >{SWAPPING_KEY}< to toggle swap mode which can swap two edges")
+    print(f"In swap mode, >left mouse< click on two edges and then press >{CONFIRMATION_KEY}< to confirm the edge swap")
+    print(f"Press >{CUTTING_KEY}< to toggle cut mode which can swap two edges")
+    print(f"In cut mode, >left mouse< click on two edges and then press >{CONFIRMATION_KEY}< to confirm the edge cut")
     plt.show()
 
 
