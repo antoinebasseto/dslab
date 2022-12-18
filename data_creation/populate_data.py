@@ -172,7 +172,7 @@ def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLE
 
         indexes = indexes[1:, :]
         embeddings = np.concatenate((indexes, embeddings), axis=1)
-        pd.DataFrame(embeddings).to_csv(Path(FEATURE_PATH / f"embeddings_{image_name}.csv"))
+        pd.DataFrame(embeddings).to_csv(Path(FEATURE_PATH / f"embeddings_{image_name}.csv"), header = False, index = False)
 
 
 
