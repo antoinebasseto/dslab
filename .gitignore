@@ -155,7 +155,7 @@ dmypy.json
 
 *.pt
 experiments/*/*
-*.png
+# *.png
 *.bin
 events.*
 *.json

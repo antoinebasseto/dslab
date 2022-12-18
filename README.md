@@ -3,7 +3,7 @@
 Repository for the 2022 Data Science Lab Project. Section `Prerequisites` describes
 how to set up environment. Section `Training` describes how to train a neural network
 using the framework. Section `Layout` describes the content and organization of this
-repository.
+repository. Section `Utils` describes briefly what the main utlity functions are.
 
 
 ## Prerequisites
@@ -48,15 +48,60 @@ IMPORTANT: The scores in the new datasets are not squashed between 0 and 1 and a
 
 ### Visualization
 
-1. Use the `visualizer.py` script in the `utils` directory. The function inputs are documented.
+1. The visualization tool can be executed by calling `visualizer.py` (example given below).
 
-2. How to use it: The visualizer requires the path to the nd2 image, the path to the droplets table (which is associated to the nd2 image) and the path to the pairing table (which is associated to the droplet table). With just these inputs, it will compute trajectories and display the brightfield images of the different frames with an overlay showing boundingboxes, number of cells, trajectory IDs and lines displaying the movement to the next frame. lastly, it will also show an image with the stitched-together trajectories over all frames. Without further options, the whole image is processed (can be slow)
+2. The visualizer has some neat features. After executing the vsiualizer, a small window should pop up, like this:
+<img align="center" src="./tutorial_images/visualizer_first_image.png" width="300">
+If you click on the magnification glass on the bottom left, you can select a region on the image via left click-and-drag and focus on the selected part of the image.
+If you click on the home buttoin, you will return to the top-most view of the image.
+If you click on the left- and right-arrow buttons on the bottom left, you can go back and forth between "focus-levels" you had selected.
+The floppy disc icon allows you to store a screenshot of the currently displayed stuff.
+The symbol with the 4 arrows in each direction allows you to pan over the image.
+By clicking `f` you can switch between fulscreen mode and normal mode.
+The visualizer can be exited by pressing `q`.
+By pressing the buttons 0 to 9 one can overlay the brightfield images of the corresponding images of 0 up to 9. (Note that the first frame is frame 0, not frame 1).
 
-3. How to use it 2: Per se, the script will only display the images + overlays, and not actually store them, and it requires user input to cycle through the various images. CHECK THE TERMINAL when executing the script, it tells you what commands to use to cycle through the images. Especially, the key 'p' can be used to take a photo of the currently displayed image, if you whish to do so. The visualizer has functionality for manually adjusting total brightness and the brightness of the different channels.
+3. The visualizer also has some tools with which one can repair faulty trajectories and store a specific selection of droplets. The command line from where the visualizer was executed should also show information on how to use the tools. There are 3 main tools: 
 
-4. OPTIONS: The script has options to: Specify a region of interest which you want to focus on by specifying upper left and bottom right corner of the window of interest. This can speed up the script. It has the option to change the output path. By default, outputs are written into the results directory. It has the option to pass an id (string), the default id is "tmp". It has the option to additionally store the droplet table, augmented with the trajectory IDs computed from the pairing table. If the droplet table given to the script already has a trajectory_id column, the pairing table is ignored and the trajectory IDs from the droplet table are used. However, typically you will need the pairing table.
+4. Selection tool: If one does a left-click and draws a path/region with the mouse, the visualizer will compute which droplets are inside the region drawn (the first occurrence of the droplet is used, i.e. frame 1) by you and mark those droplets as droplets to "keep" (more on that later) and they will be marked orange. You can keep adding droplets with this region-selection tool anytime. When you are done selecting droplets, you can press 'c' which will take all those droplets marked as "keep" (the orange ones), and create a new csv file with those exclusively. All other droplets will not be present in this new csv file. The command line should give information on where this file is stored and on what its name is. Typically theis file will be stored under `/data/05_results/results_<imagename>_<date>.csv`. Here is an example of how selected droplets appear as orange:
 
-5. Example: `visualizer.py "<path to raw images>/smallMovement1.nd2" "droplets_and_cells/finished_outputs/smallMovement1_droplets.csv" --pairingpath "droplets_and_cells/finished_outputs/smallMovement1_pairings_simpleNN.csv" --width 1000 --height 1000 --row 1000 --col 1000 --experimentid "idtest" --returntrajectories True`
+<img align="center" src="./tutorial_images/tmp1.png" width="300">
+
+5. Swap tool: Sometimes the automatic tracking algorithm will get confused between two nearby droplets and mess up the tracking in one specific frame, while the tracking between all other frames is perfectly fine. Here is an example: 
+
+<img align="center" src="./tutorial_images/tmp2.png" width="300">
+
+It is easy for a person to see that here the tracking algorithm just messed up in one single frame and that the movement of the droplets is simply a very slow horizontal movement and that the jump of the two trajectories is clearly wrong and that the jump should not happen. To allow a manual correction of these easy-to-see errors, the visualizer has the "swap tool". The swap tool works like this: First you press `a` to activate the tool (`a` will also again de-activate the tool. Check the command line for teh current status of the tool). One then selects two edges (which must represent droplet movements between the same two frames, e.g. frame 1 and 2) by clicking on them with the mouse. The two selected edges will be marked in green. If you are happy with the selection, you can then press 'enter' to confirm the swap between the two selected edges. The swap will bascially exchange the selected edges. After the swap is confirmed, the tool is deactivated automatically and must be re-activated by pressing `a` again. Here is an example:
+
+Select the edges:
+
+<img align="center" src="./tutorial_images/tmp3.png" width="300">
+
+Press enter to confirm swap and repair the trajectories:
+
+<img align="center" src="./tutorial_images/tmp4.png" width="300">
+
+Of course, swapping is only allowed if the selected edges "happen at the same time", i.e. represnet movement between the same two frames.
+If one clicks on more than 2 edges, teh program will simply consider the last two clicked edges as selected edges. If one clicks on two edges that are not "at the same time", the program will assume the last selected edge has the correct time and will adjust the other edge to be at the same time.
+
+6. Cut tool: Sometimes trackings are just simply wrong but perhaps the tracking is wrong only between frame 0 and 1 while for all other frames the tracking is perfect. In such cases it makes sense to just cut the link between frame 0 and 1 for one single droplet, while keeping the links between all other frames intact. This way one can still make use of the correct tracking for the remaining frames without having to discard everything. An example of such a case is:
+
+<img align="center" src="./tutorial_images/tmp5.png" width="300">
+
+where the long line in the center is not possible due to ther droplets being in the way.
+This is where the cut tool comes into play. The cut tool is activated by pressing `w`. Then one can select an edge by left click, which will highlight the edge in red.
+
+<img align="center" src="./tutorial_images/tmp6.png" width="300">
+
+By pressing enter one can then confirm the edge to be cut, which will basically cut the trajectory at the selected edge and split the trajectory into two new, disjoint trajectories.
+
+<img align="center" src="./tutorial_images/tmp7.png" width="300">
+
+Afterwards one can use the selection tool described before to select the good trajectory and store it in a table.
+
+
+
+
 
 
 
@@ -71,33 +116,49 @@ Only signals that surpass a certain threshold will be counted towards the "nr_ce
 However, all detected signifcant peaks will be outputted to the `cells.csv` dataset. 
 So combining the "cells" and "droplets" datasets is recommended as they complement each other.
 
-## Training
+## Training and using Deep Learning Features
 
-1. Create a checkpoint.
-   * Train it from scratch by running `python train.py <EXPERIMENT_ID>`. This will create
-   a checkpoint binary of the model with the highest score during training.
-   The checkpoint gets stored to `experiments/<EXPERIMENT_ID>/<RUN>`.
+1. Analysing regular images
+   * In this scenario, no training is needed. Simply running the code via `python main.py` is enough. If embeddings have already been created (if a file called `embeddings_{image_name}.csv` is already present
+   in `data/03_features`), then one can pass the flag `-g` in order not to re-generate the embeddings, and speed up the overall process.
+   Not using embeddings is also possible, by passing the flag `-e`.
 
-## Layout
+2. Using on another dataset
+   * Here two distinct options are possible. If a training dataset is already present (composed of several droplet images), alter the file `experiments/model.toml` and place the training dataset and validation
+   datasets paths in, respectively, `train_dataset` and `val_dataset`. If it is not, the model will be trained on the generated droplet images. While training, under `experiments/{image_name}` a new checkpoint
+   will be created. After the code finishes running, in order to not retrain the model when analysing newer images, replace the path present on `experiments/0003.toml`, in the line
+   checkpoint with the latest present checkpoint. Suppose, for instance that the image name is `smallmovement1`. Then there should be a folder `experiments/smallmovement1/000/_____.pt`. In this scenario,
+   one should then replace `checkpoint={previous value}` with `checkpoint=experiments/smallmovement1/000/_____.pt`.
+   * In order to train a new model, pass the flag `-t` to `python main.py`.
 
-(Change if deemed necessary, just a first suggestion)
+   
+## Utils
 
-```
-.
-├── experiments # stores experiment configuration files 
-│   ├── 0097.toml
-│   ├── ...
-├── models
-│   ├── deepRanking.py  # DeepRanking model
-│   └── svd.py  # svd base approach
-├── notebooks
-│   └── #Add notebooks if deemed necessary
-├── README.md
-├── environment.yml
-├── train.py  # runs experiments
-└── utils
-    ├── dataset.py  # Create datasets 
-    ├── models_common.py  # shared training code for models (if any)
-    ├── visualizer.py  # utility function to visualize results
-    └── processing.py  # various utility functions
-```
+### Data Creation
+We are in the directory `data_creation`.
+
+`populate_data.py` is the main function used for taking in raw `.nd2` images and generating postprocessed images and datasets that may be used afterwards.
+`nms.py` is a utlity function used for doing non-maxima suppression on images which is used for finding peaks in images, which is used for identifying cells in the DAPI-channel.
+`manual_circle_hough.py` contains methods for the droplet detection.
+`find_hough_circle.py` contains functions used for refining the droplet detection.
+`droplets_and_cells.py` contains the main function which finds cells and droplets.
+`droplet_retreiver.py` contains functionality for cutting out droplets from the images and putting them in some form of dataset.
+`cell_finding.py` and `cell_detector.py` contain the main functionality for finding cells.
+
+
+### Preprocessing
+We are in the directory `preprocessing`.
+
+`preprocessing.py` is the main function that does preprocessing of images.
+`raw_image_reader.py` is the main function used to take in `.nd2` images and transforming them in a more digestible format.
+
+### Tracking
+We are in the directory `tracking`.
+
+`hierarchical_linking.py` contains the main functions used for finding the trajectories of the droplets. The tracking is based on defining "linking-costs" between droplets of subsequent frames and then doing a maximum-matching between the frames by means of a flow-cost-minimization algorithm.
+
+### Visualizer
+We are in the directory `visualizer`.
+
+`interactive_explorer.py` is the core of the visualization tool and implements a visualizer which allows the operator to omit bad droplets and also to repair droplet tracking by means of manually swapping links within frames or cutting links between frames.
+
