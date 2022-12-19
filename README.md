@@ -132,33 +132,3 @@ So combining the "cells" and "droplets" datasets is recommended as they compleme
    * In order to train a new model, pass the flag `-t` to `python main.py`.
 
    
-## Utils
-
-### Data Creation
-We are in the directory `data_creation`.
-
-`populate_data.py` is the main function used for taking in raw `.nd2` images and generating postprocessed images and datasets that may be used afterwards.
-`nms.py` is a utlity function used for doing non-maxima suppression on images which is used for finding peaks in images, which is used for identifying cells in the DAPI-channel.
-`manual_circle_hough.py` contains methods for the droplet detection.
-`find_hough_circle.py` contains functions used for refining the droplet detection.
-`droplets_and_cells.py` contains the main function which finds cells and droplets.
-`droplet_retreiver.py` contains functionality for cutting out droplets from the images and putting them in some form of dataset.
-`cell_finding.py` and `cell_detector.py` contain the main functionality for finding cells.
-
-
-### Preprocessing
-We are in the directory `preprocessing`.
-
-`preprocessing.py` is the main function that does preprocessing of images.
-`raw_image_reader.py` is the main function used to take in `.nd2` images and transforming them in a more digestible format.
-
-### Tracking
-We are in the directory `tracking`.
-
-`hierarchical_linking.py` contains the main functions used for finding the trajectories of the droplets. The tracking is based on defining "linking-costs" between droplets of subsequent frames and then doing a maximum-matching between the frames by means of a flow-cost-minimization algorithm.
-
-### Visualizer
-We are in the directory `visualizer`.
-
-`interactive_explorer.py` is the core of the visualization tool and implements a visualizer which allows the operator to omit bad droplets and also to repair droplet tracking by means of manually swapping links within frames or cutting links between frames.
-

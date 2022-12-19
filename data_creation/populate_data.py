@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 import toml
 import pandas as pd
+import random
+import logging
 import torch
 from preprocessing.preprocessing import preprocess
 from preprocessing.preprocessing import preprocess_alt_franc
@@ -56,7 +58,37 @@ def save_droplet_images(dataset: np.ndarray, image_name: str, DROPLET_PATH: Path
             patch[np.isnan(patch)] = 0.0
             np.save(Path(folder_path / ("f" + str(i) + "_d" + str(j).zfill(4))), patch)
 
-def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLET_PATH, EXPERIMENT_PATH = None, omit_droplet_dataset = False) -> None:
+def prep_experiment_dir(EXPERIMENTS_PATH, experiment):
+    experiment_base_dir = os.path.join(EXPERIMENTS_PATH, str(experiment))
+    try:
+        os.mkdir(experiment_base_dir)
+    except FileExistsError as _:
+        pass
+    try:
+        experiment_idx = max([int(max(n.lstrip("0"), "0")) for n in os.listdir(experiment_base_dir)])
+    except ValueError as _:
+        experiment_idx = 0
+    experiment_dir = os.path.join(experiment_base_dir, str(experiment_idx).zfill(3))
+    try:
+        os.mkdir(experiment_dir)
+    except FileExistsError as _:
+        pass
+    return Path(experiment_dir)
+
+def print_cuda_status():
+    # setting device on GPU if available, else CPU
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('Using device:', device)
+    print()
+
+    # Additional Info when using cuda
+    if device.type == 'cuda':
+        print(torch.cuda.get_device_name(0))
+        print('Memory Usage:')
+        print('Allocated:', round(torch.cuda.memory_allocated(0) / 1024 ** 3, 1), 'GB')
+        print('Cached:   ', round(torch.cuda.memory_reserved(0) / 1024 ** 3, 1), 'GB')
+
+def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLET_PATH, EXPERIMENT_PATH = None, omit_droplet_dataset = False, train_model = False, create_emb =  False) -> None:
     print("Image preprocessing for droplet detection ...")
     preprocessed_image = raw_to_preprocessed_alt_franc(raw_image_path, image_name, PREPROCESSED_PATH)
     print("Detecting droplets and cells...")
@@ -77,15 +109,51 @@ def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLE
     else:
         print("Omitting droplet dataset creation...")
 
-    if EXPERIMENT_PATH is not None:
+    model = None
+    config = None
+    if train_model:
+        print_cuda_status()
+        experiment_dir = prep_experiment_dir(EXPERIMENT_PATH, image_name)
+        config = toml.load(EXPERIMENT_PATH/"model.toml")["config"]
+
+        torch.manual_seed(config["seed"])
+        random.seed(config["seed"])
+        np.random.seed(config["seed"])
+        if config["train_dataset"] == '':
+            config["train_dataset"] = Path(DROPLET_PATH, f"{image_name}")
+            config["val_dataset"] = Path(DROPLET_PATH, f"{image_name}")
+        config['experiment_dir'] = experiment_dir
+
+        logging.basicConfig(filename=str(experiment_dir / 'output.log'), level=logging.INFO)
+        logging.getLogger().addHandler(logging.StreamHandler())
+
+        if "checkpoint" in config:
+            model = ViTMAE(config)
+            checkpoint_path = config["checkpoint"]
+            checkpoint = torch.load(checkpoint_path, map_location=model.device)
+            model.model.load_state_dict(checkpoint['model_state_dict'])
+            model.step = checkpoint['step']
+            model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            print("loaded checkpoint", checkpoint_path)
+        else:
+            model = ViTMAE(config)
+
+        logging.info("Training model...")
+        model.train()
+
+    if create_emb:
         print("Creating Embeddings")
-        config = toml.load(EXPERIMENT_PATH / "0003.toml")["config"]
 
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        checkpoint = torch.load(config["checkpoint"], map_location=device)
 
-        model = ViTMAE(config)
-        model.model.load_state_dict(checkpoint['model_state_dict'])
+
+        if not train_model:
+            config = toml.load(EXPERIMENT_PATH / "0003.toml")["config"]
+
+            checkpoint = torch.load(config["checkpoint"], map_location=device)
+
+            model = ViTMAE(config)
+            model.model.load_state_dict(checkpoint['model_state_dict'])
 
         transforms = None
         train_dataset = FolderDataset(Path(DROPLET_PATH, f"{image_name}"), transforms)
