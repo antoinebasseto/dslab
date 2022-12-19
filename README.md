@@ -103,7 +103,7 @@ Sometimes, the visualizer may bug and mouse clicks do not register or something 
 1. Analysing regular images
    * In this scenario, no training is needed. Simply running the code via `python main.py` is enough. If embeddings have already been created (if a file called `embeddings_{image_name}.csv` is already present
    in `data/03_features`), then one can pass the flag `-g` in order not to re-generate the embeddings, and speed up the overall process.
-   Not using embeddings is also possible, by passing the flag `-e`.
+   Not using embeddings is also possible, by passing the flag `-ne`.
 
 2. Using on another dataset
    * Here two distinct options are possible. If a training dataset is already present (composed of several droplet images), alter the file `experiments/model.toml` and place the training dataset and validation
