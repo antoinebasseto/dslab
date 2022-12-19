@@ -8,10 +8,10 @@ from tqdm.auto import tqdm
 from data_creation.cell_detector import cell_detector
 from data_creation.manual_circle_hough import manual_circle_hough
 
-def get_droplet_output(bf_image, refine):
-    droplet_mask, droplet_circles = manual_circle_hough(bf_image, refine)
+def get_droplet_output(bf_image, refine, radius_min = 12, radius_max = 25):
+    droplet_mask, droplet_circles = manual_circle_hough(bf_image, refine, radius_min = radius_min, radius_max = radius_max)
 
-def generate_output(input_string, output_string_droplets, output_string_cells, refine, optional_output_directory, optional_output):
+def generate_output(input_string, output_string_droplets, output_string_cells, refine, optional_output_directory, optional_output, radius_min = 12, radius_max = 25):
     assert(False and "Use the other generate_output function which uses the proprocessed images.")
     f = nd2.ND2File(input_string)
 
@@ -46,7 +46,7 @@ def generate_output(input_string, output_string_droplets, output_string_cells, r
         # print(bf_channel.shape)
         # print(dapi_channel.shape)
 
-        circles_in_frame = manual_circle_hough(bf_channel, refine, noise_level_param = 0.8)
+        circles_in_frame = manual_circle_hough(bf_channel, refine, noise_level_param = 0.8, radius_min = radius_min, radius_max = radius_max)
 
         # cells_mask, cells_intensities, cells_persistencies, squashed_cells_intensities, squashed_cells_persistencies = cell_detector(dapi_channel, bf_channel, circles_in_frame)
         cells_mask, cells_intensities, cells_persistencies = cell_detector(dapi_channel, bf_channel, circles_in_frame)
@@ -119,7 +119,7 @@ def generate_output(input_string, output_string_droplets, output_string_cells, r
 
 # The input image should be an ndarray with shape f c h w where f is the frames, c are the channels, and h and w are height and width of the image.
 # IMPORTANT: Datatype should be uint16 just as with the raw images and BF and DAPI must be channels Nr 0 and 1 respectively
-def generate_output_from_ndarray(input_image, output_string_droplets, output_string_cells, refine, optional_output_directory, optional_output):
+def generate_output_from_ndarray(input_image, output_string_droplets, output_string_cells, refine, optional_output_directory, optional_output, radius_min = 12, radius_max = 25):
     nr_frames = input_image.shape[0]
     nr_channels = input_image.shape[1]
     droplets = []
@@ -138,7 +138,7 @@ def generate_output_from_ndarray(input_image, output_string_droplets, output_str
         # print(bf_channel.shape)
         # print(dapi_channel.shape)
 
-        circles_in_frame = manual_circle_hough(bf_channel, refine, bf_is_inverted = True)
+        circles_in_frame = manual_circle_hough(bf_channel, refine, bf_is_inverted = True, radius_min = radius_min, radius_max = radius_max)
 
         # cells_mask, cells_intensities, cells_persistencies, squashed_cells_intensities, squashed_cells_persistencies = cell_detector(dapi_channel, bf_channel, circles_in_frame)
         cells_mask, cells_intensities, cells_persistencies = cell_detector(dapi_channel, bf_channel, circles_in_frame)

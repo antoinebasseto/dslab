@@ -13,7 +13,7 @@ def uint8_to_f32 (img):
     return np.float32(img / 255.0)
 
 # input is uin16 greyscale base image
-def manual_circle_hough (img, refine, bf_is_inverted = False, noise_level_param = 0.3):
+def manual_circle_hough (img, refine, bf_is_inverted = False, noise_level_param = 0.3, radius_min = 12, radius_max = 25):
     
     # For the BF channel, bottom 80% of pixels is pretty much background 
     noise_level = noise_level_param
@@ -38,7 +38,7 @@ def manual_circle_hough (img, refine, bf_is_inverted = False, noise_level_param 
         img_denoised = cv.GaussianBlur(img_denoised, (3, 3), 0)
         # preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 1, 25, param1 = 40, param2 = 30, minRadius = 15, maxRadius = 25)))
         # preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 2, 30, param1 = 20, param2 = 20, minRadius = 15, maxRadius = 25)))
-        preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 1, 26, param1 = 80, param2 = 20, minRadius = 12, maxRadius = 25))) # Works well for LM1, LM2, LM3, LM4, SM1, SM2, SM3
+        preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 1, 26, param1 = 80, param2 = 20, minRadius = radius_min, maxRadius = radius_max))) # Works well for LM1, LM2, LM3, LM4, SM1, SM2, SM3
         for i in tqdm(preliminary_hough[0, :]):
             # Switcheroo here to have row and then col 
             center = (i[1], i[0])
@@ -51,7 +51,7 @@ def manual_circle_hough (img, refine, bf_is_inverted = False, noise_level_param 
         # preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 1, 23, param1 = 10, param2 = 20, minRadius = 12, maxRadius = 25)))
         # preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 1, 23, param1 = 40, param2 = 20, minRadius = 12, maxRadius = 25))) Works well for LM2
         # preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 1, 23, param1 = 60, param2 = 20, minRadius = 12, maxRadius = 25))) # Works well for LM1, LM2, LM3. Too many circles in LM4
-        preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 1, 26, param1 = 80, param2 = 20, minRadius = 12, maxRadius = 25))) # Works well for LM1, LM2, LM3, LM4, SM1, SM2, SM3
+        preliminary_hough = np.uint16(np.around(cv.HoughCircles(f32_to_uint8(img_denoised), cv.HOUGH_GRADIENT, 1, 26, param1 = 80, param2 = 20, minRadius = radius_min, maxRadius = radius_max))) # Works well for LM1, LM2, LM3, LM4, SM1, SM2, SM3
         preliminary_mask = np.zeros(img_denoised.shape, dtype = np.float32)
         for i in tqdm(preliminary_hough[0, :]):
             center = (i[0], i[1])

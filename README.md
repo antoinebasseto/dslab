@@ -51,7 +51,9 @@ IMPORTANT: The scores in the new datasets are not squashed between 0 and 1 and a
 1. The visualization tool can be executed by calling `visualizer.py` (example given below).
 
 2. The visualizer has some neat features. After executing the vsiualizer, a small window should pop up, like this:
+
 <img align="center" src="./tutorial_images/visualizer_first_image.png" width="300">
+
 If you click on the magnification glass on the bottom left, you can select a region on the image via left click-and-drag and focus on the selected part of the image.
 If you click on the home buttoin, you will return to the top-most view of the image.
 If you click on the left- and right-arrow buttons on the bottom left, you can go back and forth between "focus-levels" you had selected.
