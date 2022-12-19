@@ -88,14 +88,14 @@ def print_cuda_status():
         print('Allocated:', round(torch.cuda.memory_allocated(0) / 1024 ** 3, 1), 'GB')
         print('Cached:   ', round(torch.cuda.memory_reserved(0) / 1024 ** 3, 1), 'GB')
 
-def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLET_PATH, EXPERIMENT_PATH = None, omit_droplet_dataset = False, train_model = False, create_emb =  False) -> None:
+def populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLET_PATH, EXPERIMENT_PATH = None, omit_droplet_dataset = False, train_model = False, create_emb =  False, radius_min = 12, radius_max = 25) -> None:
     print("Image preprocessing for droplet detection ...")
     preprocessed_image = raw_to_preprocessed_alt_franc(raw_image_path, image_name, PREPROCESSED_PATH)
     print("Detecting droplets and cells...")
     droplet_feature_path = Path(FEATURE_PATH / f"droplets_{image_name}.csv")
     cell_feature_path = Path(FEATURE_PATH / f"cells_{image_name}.csv")
     # generate_output_from_ndarray(preprocessed_image, droplet_feature_path, cell_feature_path, True, str(PREPROCESSED_PATH) + "/", True)
-    generate_output_from_ndarray(preprocessed_image, droplet_feature_path, cell_feature_path, True, "", False)
+    generate_output_from_ndarray(preprocessed_image, droplet_feature_path, cell_feature_path, True, "", False, radius_min = radius_min, radius_max = radius_max)
 
     print("Image preprocessing for feature extraction ...")
     preprocessed_image = raw_to_preprocessed_featextr(raw_image_path, image_name, PREPROCESSED_PATH)

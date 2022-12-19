@@ -3,12 +3,14 @@
 Repository for the 2022 Data Science Lab Project. Section `Prerequisites` describes
 how to set up environment. Section `Training` describes how to train a neural network
 using the framework. Section `Layout` describes the content and organization of this
-repository.
+repository. Section `Utils` describes briefly what the main utlity functions are.
 
 
 ## Prerequisites
 
 ### Software
+
+TODO: We need a proper env setup and tutorial on how to excute the code
 
 1. PLEASE READ THE WHOLE SECTION BEFORE EXECUTING ANYTHING. At the moment, a basic environment is given in `utils/env_prefixless.yml` and can be installed by running. 
     ```
@@ -22,54 +24,79 @@ repository.
 
    If you are on MacOS and using homebrew, and have installed miniconda over homebrew, you probably want / need to change the prefix to point to the miniconda directory inside the homebrew filespace. To that end, you may want to try and use `utils/env_brewprefix.yml` which already contains a prefix that should point to the correct location within the homebrew system so you do not have to pass a `--prefix` option when creating the conda env. If you use conda inside homebrew on a mac, you will also probably need to execute python via the `/opt/homebrew/Caskroom/miniconda/base/envs/<env name here (should be "dsl" if everything goes right)>/bin/python3` command if you do not change the default python path (which is not recommeneded as python is already installed on the mac and the system depends on that installation).
 
-### Images
-
-1. The nd2reader library does not work on all images. Instead, we use the nd2 library.  To that end, `get_image_as_ndarray` in `utils/raw_image_reader.py` can be used to extract frames and channels as numpy arrays from the nd2 image.
-
 ### Datasets
 
-1. Currently, we have 3 images (small movement 1, 2, and 3) for which we have detected droplets and cells. The datasets are in `utils/droplets_and_cells/finished_outputs`. In there you will find the csv tables for both droplets and cells for all three images mentioned above. Additionally, you can also find the legacy dataset for the image "small movement 1" which has a `legacy` at the end of its name.
-To create a "droplet dataset" from these csv files, one needs to use the according nd2 image (that matches the droplet csv file) and the function `create_dataset` in `utils/droplet_retreiver.py` which should be documented.
-This droplet dataset will give you a sort of list of all droplets together with cut out image patches where the droplet is located.
+1. The droplet tracking algorithm works only with images that have similar statistics as the images supplied to the group. In particular, the images must be relatively focused and the resolution must be significantly high enough for details within the droplets to be visible. Additionally, the images must be provided in an `.nd2` image format and the images must only contain data about the images of the different channeles across the different frames (just like the images provided to the group).
 
-2. The cells dataset can be used to augment the droplet dataset (see point 3.) as it allows to read off the intensity and persistency scores (and also the locations) of all the signal-spikes that have been detected in the various droplets, which can then be used to improve the accuracy of similarity scores.
-The "intensity score" of the cells is related to the "height" of the spike in the DAPI channel, relative to the background noise.
-In detail, the score measures how high the intensity of the peak is, and the units are 10 * standrad deviation of the estimated noise.
-On the other hand, the "persistency score" is related to how "wide" the detected peaks are.
-The persistence score computes the average distance in pixels from the peak location, to the 10 closest pixels which are categorized as "noise". 
-I.e., it is an estimate of the margin between the peak center and the closest point "where the noise begins".
-In the legacy dataset, the scores were squashed between 0 and 1 to make it a bit more scale invariant but I found that the loss of precision was significant when we actually want to work with the raw / unsquashed measurements. For this reason, in the new datasets, the scores are not between 0 and 1 anymore, but rather 0 and infinity.
-The intensity and persistence scores will in general be reasonably positively correlated but there are cases where one can be big and the other one small and vice versa.
-IMPORTANT: The "persistence score" is not available in the legacy dataset. 
-IMPORTANT: The scores in the new datasets are not squashed between 0 and 1 and are between 0 and infinity instead. 
+2. To account for slight changes in the experiments which cause the droplets to have different diameters, one can adjust via the options `--radius_min` and `radius_max` the minimum and maximum radius of the droplets (in pixels) to be detected. The defaults are 12 and 25 respectively. Of course these bounds should not be very tight as due to noise there may be fluctuations in the measured radii. We suggest picking bounds with at least 2 to 3 pixels of slack. The defuault settings work fine for the images given to the group.
 
-3. To get the combined information of the cells and droplets dataset (ie, get additional information about all significant peaks in each droplet), you can use `create_dataset_cell_enhanced` in `utils/droplet_retreiver.py`. This function will give the same output as the `create_dataset` function, except that additonally, in each entry corresponding to a droplet and frame in the returned dataset, there will be an additional column "cell_signals" which is a pandas dataframe (I think) which contains all information about all detected peaks in the corresponding droplet and frame. So basically each entry in the returned dataset contains a column which is again a dataframe which contains significant spikes in the DAPI channel. This nested dataframe has multiple columns telling you various scores about the detected peaks, their locations and their IDs.
-
+3. There is an issue of image size and number of droplets in the image. We do not suggest to use too big images or images with 100s of thousands of droplets. The reason is that this will consume an ungodly amount of memory and simply crash the program or eat up a whole bunch of disk space.
+Images of the size that have been provided to the group (ca 4k x 4k pixels and 8k-10k droplets) work (takes about 10-20 minutes or so to do everything and takes up a bit more than 8 GB of RAM) but if it gets bigger than that, it becomes problematic (mainly due to memory issues).
+However, it is also not reasonable to use the very big images for another reason which would be, that nobody is going to be able to analyze the large amount of data produced by the algorithm in those cases (100k trajectories etc). Because in the end the output of the algorithm needs to be checked by a human anyways. In the case of small movement a human is still necessary in order to filter out the 1% of trajectories that are wrong while in the case of large movement, a human is necessary to detect which regions in the image contain useful and robust trackings. When we talk about images with 100k droplets, this is just not doable.
+The group suggest to use images with approximately 2k droplets and of dimensions 2k x 2k pixels (about 2 times 2 patches taken by the microscope camera).
 
 ### Visualization
 
-1. Use the `visualizer.py` script in the `utils` directory. The function inputs are documented.
+1. The visualization tool can be executed by calling `visualizer.py` (example given below).
 
-2. How to use it: The visualizer requires the path to the nd2 image, the path to the droplets table (which is associated to the nd2 image) and the path to the pairing table (which is associated to the droplet table). With just these inputs, it will compute trajectories and display the brightfield images of the different frames with an overlay showing boundingboxes, number of cells, trajectory IDs and lines displaying the movement to the next frame. lastly, it will also show an image with the stitched-together trajectories over all frames. Without further options, the whole image is processed (can be slow)
+2. The visualizer has some neat features. After executing the vsiualizer, a small window should pop up, like this:
 
-3. How to use it 2: Per se, the script will only display the images + overlays, and not actually store them, and it requires user input to cycle through the various images. CHECK THE TERMINAL when executing the script, it tells you what commands to use to cycle through the images. Especially, the key 'p' can be used to take a photo of the currently displayed image, if you whish to do so. The visualizer has functionality for manually adjusting total brightness and the brightness of the different channels.
+<img align="center" src="./tutorial_images/visualizer_first_image.png" width="300">
 
-4. OPTIONS: The script has options to: Specify a region of interest which you want to focus on by specifying upper left and bottom right corner of the window of interest. This can speed up the script. It has the option to change the output path. By default, outputs are written into the results directory. It has the option to pass an id (string), the default id is "tmp". It has the option to additionally store the droplet table, augmented with the trajectory IDs computed from the pairing table. If the droplet table given to the script already has a trajectory_id column, the pairing table is ignored and the trajectory IDs from the droplet table are used. However, typically you will need the pairing table.
+If you click on the magnification glass on the bottom left, you can select a region on the image via left click-and-drag and focus on the selected part of the image.
+If you click on the home buttoin, you will return to the top-most view of the image.
+If you click on the left- and right-arrow buttons on the bottom left, you can go back and forth between "focus-levels" you had selected.
+The floppy disc icon allows you to store a screenshot of the currently displayed stuff.
+The symbol with the 4 arrows in each direction allows you to pan over the image.
+By clicking `f` you can switch between fulscreen mode and normal mode.
+The visualizer can be exited by pressing `q`.
+By pressing the buttons 0 to 9 one can overlay the brightfield images of the corresponding images of 0 up to 9. (Note that the first frame is frame 0, not frame 1).
 
-5. Example: `visualizer.py "<path to raw images>/smallMovement1.nd2" "droplets_and_cells/finished_outputs/smallMovement1_droplets.csv" --pairingpath "droplets_and_cells/finished_outputs/smallMovement1_pairings_simpleNN.csv" --width 1000 --height 1000 --row 1000 --col 1000 --experimentid "idtest" --returntrajectories True`
+3. The visualizer also has some tools with which one can repair faulty trajectories and store a specific selection of droplets. The command line from where the visualizer was executed should also show information on how to use the tools. There are 3 main tools: 
 
+4. Selection tool: If one does a left-click and draws a path/region with the mouse, the visualizer will compute which droplets are inside the region drawn (the first occurrence of the droplet is used, i.e. frame 1) by you and mark those droplets as droplets to "keep" (more on that later) and they will be marked orange. You can keep adding droplets with this region-selection tool anytime. When you are done selecting droplets, you can press 'c' which will take all those droplets marked as "keep" (the orange ones), and create a new csv file with those exclusively. All other droplets will not be present in this new csv file. The command line should give information on where this file is stored and on what its name is. Typically theis file will be stored under `/data/05_results/results_<imagename>_<date>.csv`. Here is an example of how selected droplets appear as orange:
 
+<img align="center" src="./tutorial_images/tmp1.png" width="300">
 
+5. Swap tool: Sometimes the automatic tracking algorithm will get confused between two nearby droplets and mess up the tracking in one specific frame, while the tracking between all other frames is perfectly fine. Here is an example: 
 
+<img align="center" src="./tutorial_images/tmp2.png" width="300">
 
+It is easy for a person to see that here the tracking algorithm just messed up in one single frame and that the movement of the droplets is simply a very slow horizontal movement and that the jump of the two trajectories is clearly wrong and that the jump should not happen. To allow a manual correction of these easy-to-see errors, the visualizer has the "swap tool". The swap tool works like this: First you press `a` to activate the tool (`a` will also again de-activate the tool. Check the command line for teh current status of the tool). One then selects two edges (which must represent droplet movements between the same two frames, e.g. frame 1 and 2) by clicking on them with the mouse. The two selected edges will be marked in green. If you are happy with the selection, you can then press 'enter' to confirm the swap between the two selected edges. The swap will bascially exchange the selected edges. After the swap is confirmed, the tool is deactivated automatically and must be re-activated by pressing `a` again. Here is an example:
 
-### Droplet detection
+Select the edges:
 
-1. Droplet detection can be performed by executing `utils/droplets_and_cells/droplets_and_cells.py`. 
-This function will also detect cells. It will measure peaks in the DAPI channel to find possible cells. Not all significant peaks will however be counted towards the "nr_cells" column in the droplet dataset. 
-Only signals that surpass a certain threshold will be counted towards the "nr_cells" columns in the `droplets.csv` dataset. 
-However, all detected signifcant peaks will be outputted to the `cells.csv` dataset. 
-So combining the "cells" and "droplets" datasets is recommended as they complement each other.
+<img align="center" src="./tutorial_images/tmp3.png" width="300">
+
+Press enter to confirm swap and repair the trajectories:
+
+<img align="center" src="./tutorial_images/tmp4.png" width="300">
+
+Of course, swapping is only allowed if the selected edges "happen at the same time", i.e. represnet movement between the same two frames.
+If one clicks on more than 2 edges, teh program will simply consider the last two clicked edges as selected edges. If one clicks on two edges that are not "at the same time", the program will assume the last selected edge has the correct time and will adjust the other edge to be at the same time.
+
+6. Cut tool: Sometimes trackings are just simply wrong but perhaps the tracking is wrong only between frame 0 and 1 while for all other frames the tracking is perfect. In such cases it makes sense to just cut the link between frame 0 and 1 for one single droplet, while keeping the links between all other frames intact. This way one can still make use of the correct tracking for the remaining frames without having to discard everything. An example of such a case is:
+
+<img align="center" src="./tutorial_images/tmp5.png" width="300">
+
+where the long line in the center is not possible due to ther droplets being in the way.
+This is where the cut tool comes into play. The cut tool is activated by pressing `w`. Then one can select an edge by left click, which will highlight the edge in red.
+
+<img align="center" src="./tutorial_images/tmp6.png" width="300">
+
+By pressing enter one can then confirm the edge to be cut, which will basically cut the trajectory at the selected edge and split the trajectory into two new, disjoint trajectories.
+
+<img align="center" src="./tutorial_images/tmp7.png" width="300">
+
+Afterwards one can use the selection tool described before to select the good trajectory and store it in a table.
+
+7. Example on how to execute the visualizer: `python3 visualizer.py "smallMovement1.nd2" "results_smallmovement1.csv"`. 
+Explaination: `python3 visualizer.py` tells the computer to exeucte the program `visualizer.py` by means of the programming language `python3` (or simply Python). 
+`"smallMovement1.nd2"` tells the program, which image to display in the overlay.
+`"results_smallmovement1.csv"` tells the program in which file the trackings computed by the algorithm are located. 
+In particular this means, the visualizer can only be executed after one has executed `main.py` and gotten the results from the algorithm.
+Sometimes, the visualizer may bug and mouse clicks do not register or something like that. In this case, simply click outside of the window of the visualizer (such that the program goes "out-of-focus") and then click on it again. It should work after that.
+
 
 ## Training and using Deep Learning Features
 

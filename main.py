@@ -34,6 +34,9 @@ parser.add_argument('--similarity_weight', type=float, help='a number between 0 
 parser.add_argument('--vicinity_weight', type=float, help='a number between 0 and 1. 1 means we prefer only spacial vicinity. 0 means we consider spacial vicinity and visual similarity. Default is 0.5')
 parser.add_argument('--max_dist', type=int, help='a positive integer that indicates the maximal distance in pixels that a droplet can move between frames. Default is 250')
 parser.add_argument('--movement_variability', type=float, help='a positive floating point number (typically close to 1). Close to 0 means we prefer few droplets that move a lot. 1 means we are neutral. Greater than 1 means we prefer if many droplets move a bit. Default is 1 and values close to 1 seem to work best.')
+
+parser.add_argument('--radius_min', type=int, help='Minimum radius of droplets to be detected in pixels. Default is 12')
+parser.add_argument('--radius_max', type=int, help='Maximum radius of droplets to be detected in pixels. Default is 25')
 args = parser.parse_args()
 
 raw_image_path = Path(RAW_PATH / args.raw_image)
@@ -53,10 +56,19 @@ generate_embeddings = not generate_embeddings
 if train_model is None:
     train_model = False
 
+radius_min = args.radius_min
+radius_max = args.radius_max
+if radius_min is None:
+    radius_min = 12
+if radius_max is None:
+    radius_max = 25
+
 if not skip_dataset:
     print("----Creating Preprocessed Dataset----")
     populate(raw_image_path, image_name, FEATURE_PATH, PREPROCESSED_PATH, DROPLET_PATH, EXPERIMENT_PATH,
-         create_emb=generate_embeddings, train_model=train_model)
+         create_emb=generate_embeddings, train_model=train_model,
+         radius_min = radius_min,
+         radius_max = radius_max)
 similarity_weight = args.similarity_weight
 max_dist = args.max_dist
 vicinity_weight = args.vicinity_weight
