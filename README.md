@@ -90,6 +90,12 @@ By pressing enter one can then confirm the edge to be cut, which will basically 
 
 Afterwards one can use the selection tool described before to select the good trajectory and store it in a table.
 
+7. Example on how to execute the visualizer: `python3 visualizer.py "smallMovement1.nd2" "results_smallmovement1.csv"`. 
+Explaination: `python3 visualizer.py` tells the computer to exeucte the program `visualizer.py` by means of the programming language `python3` (or simply Python). 
+`"smallMovement1.nd2"` tells the program, which image to display in the overlay.
+`"results_smallmovement1.csv"` tells the program in which file the trackings computed by the algorithm are located. 
+In particular this means, the visualizer can only be executed after one has executed `main.py` and gotten the results from the algorithm.
+Sometimes, the visualizer may bug and mouse clicks do not register or something like that. In this case, simply click outside of the window of the visualizer (such that the program goes "out-of-focus") and then click on it again. It should work after that.
 
 
 ## Training and using Deep Learning Features
