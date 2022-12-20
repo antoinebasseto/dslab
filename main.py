@@ -50,9 +50,14 @@ train_model = args.t
 if use_embeddings is None:
     use_embeddings = False
 use_embeddings = not use_embeddings
+
 if generate_embeddings is None:
     generate_embeddings = False
 generate_embeddings = not generate_embeddings
+
+if not use_embeddings:
+    generate_embeddings = False
+
 if train_model is None:
     train_model = False
 
