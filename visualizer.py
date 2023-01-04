@@ -1,11 +1,8 @@
 import os
 import argparse
 from pathlib import Path
-import cv2 as cv
-import pandas as pd
 
 from visualizer.interactive_explorer import select_trajectories
-from visualizer.interactive_explorer import read_in_results
 
 PROJECT_PATH = Path(os.getcwd())
 DATA_PATH = Path(PROJECT_PATH / "data")

@@ -189,13 +189,13 @@ def select_trajectories(image_path, results_path, image_name):
         
         # Check if trajectory beginnings are within selected region
         inside = path.contains_points(trajectory_beginning)
+        inside = pd.Series(inside, index=results_df.index)
 
+        results_df.loc[inside, 'discard'] = ~results_df.loc[inside, 'discard']
 
         # Set the color of the selected points to orange
-        for idx, value in enumerate(inside):
-            if value:
-                all_lines[idx].set_color('C1')
-        results_df['discard'] = results_df['discard'] & (~pd.Series(inside, index=results_df.index))
+        for idx, value in results_df['discard'].items():
+            all_lines[idx].set_color('C1' if not value else 'C0')
 
         # Redraw the figure
         plt.gcf().canvas.draw_idle()
@@ -331,8 +331,10 @@ def select_trajectories(image_path, results_path, image_name):
     print(f"Press >{SAVE_KEY}< to save an updated results csv which only contains droplets selected (marked with orange)")
     print(f"Press >{SWAPPING_KEY}< to toggle swap mode which can swap two edges")
     print(f"In swap mode, >left mouse< click on two edges and then press >{CONFIRMATION_KEY}< to confirm the edge swap")
-    print(f"Press >{CUTTING_KEY}< to toggle cut mode which can swap two edges")
-    print(f"In cut mode, >left mouse< click on two edges and then press >{CONFIRMATION_KEY}< to confirm the edge cut")
+    print(f"Press >{CUTTING_KEY}< to toggle cut mode which can cut a trajectory in two")
+    print(f"In cut mode, >left mouse< click on an edge and then press >{CONFIRMATION_KEY}< to confirm the edge cut")
+    for i in range(len(frames)):
+        print(f"Press >{i}< to toggle the visibility of frame #{i}")
     plt.gcf().canvas.manager.set_window_title('Visualizer ' + image_name)
     plt.show()
 
