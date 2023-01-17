@@ -130,6 +130,7 @@ class FolderDataset(Dataset):
         image = np.vectorize(self.convert_to_float)(image)
         image = normalized(image, 1)
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB).transpose()
+        cv2.imwrite("image.jpg", image)
 
         # image = image.astype(np.float32)
 
