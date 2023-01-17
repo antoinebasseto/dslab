@@ -101,6 +101,7 @@ Sometimes, the visualizer may bug and mouse clicks do not register or something 
 ## Training and using Deep Learning Features
 
 1. Analysing regular images
+   * One should begin by downloading the model weights from https://drive.google.com/drive/folders/17FxnvlEciArXhHGG7Ws3jAbBjqVEsJc4?usp=sharing, and storing them in the appropriate folder. The folder `experiments/0003/000/checkpoint_165000_.pt` is the default, but any other folder can be chosen as long as it matches the `checkpoint` parameter in `experiments/0003.toml`.
    * In this scenario, no training is needed. Simply running the code via `python main.py` is enough. If embeddings have already been created (if a file called `embeddings_{image_name}.csv` is already present
    in `data/03_features`), then one can pass the flag `-g` in order not to re-generate the embeddings, and speed up the overall process.
    Not using embeddings is also possible, by passing the flag `-ne`.
