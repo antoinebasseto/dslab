@@ -1,30 +1,79 @@
 # Droplet Tracking
 
 Repository for the 2022 Data Science Lab Project. Section `Prerequisites` describes
-how to set up environment. Section `Training` describes how to train a neural network
-using the framework. Section `Layout` describes the content and organization of this
-repository. Section `Utils` describes briefly what the main utlity functions are.
-
+how to set up environment. Section `Basic Usage` describes how to use the software.
 
 ## Prerequisites
 
 ### Software
 
-TODO: We need a proper env setup and tutorial on how to excute the code
+To make this project run, a python installation with certain packages is required.
+To that end, we suggest the user to use a conda virtual execution environment generated from the `environment.yml` file in this directory.
 
-1. PLEASE READ THE WHOLE SECTION BEFORE EXECUTING ANYTHING. At the moment, a basic environment is given in `utils/env_prefixless.yml` and can be installed by running. 
-    ```
-    conda env create -f env_prefixless.yml
-   ```
-   As far as I understand, this will install the environment in the default conda/miniconda envs directory.
-   To install the env in a specific location, use 
-   ```
-    conda env create --prefix <path to desired directory> -f env_prefixless.yml
-   ```
+The general process for generating the execution environment from this `environment.yml` file is to first install conda, then open a command line in this directory and execute 
+```
+   conda env create -f environment.yml
+```
 
-   If you are on MacOS and using homebrew, and have installed miniconda over homebrew, you probably want / need to change the prefix to point to the miniconda directory inside the homebrew filespace. To that end, you may want to try and use `utils/env_brewprefix.yml` which already contains a prefix that should point to the correct location within the homebrew system so you do not have to pass a `--prefix` option when creating the conda env. If you use conda inside homebrew on a mac, you will also probably need to execute python via the `/opt/homebrew/Caskroom/miniconda/base/envs/<env name here (should be "dsl" if everything goes right)>/bin/python3` command if you do not change the default python path (which is not recommeneded as python is already installed on the mac and the system depends on that installation).
+IMPORTANT: At the moment, the `environment.yml` file is set up to create an environment with name `dsl`. If you wish for a different name, you need to change it in the `environment.yml` file. Also, the installation directory, specified by `prefix` in `environment.yml`, is set up for when conda has been installed on the Macintosh Operating System via homebrew. If the reader is on a different operating system and does not recognize any of these words, delete the `prefix` field in `environment.yml` before generating the environment. Depending on the OS and other stuff, the user then needs to look into what is necessary for making the environment generation work.
 
-### Datasets
+### Things needed for using Learned Features
+
+1. Analysing regular images
+   * One should begin by downloading the model weights from https://drive.google.com/drive/folders/17FxnvlEciArXhHGG7Ws3jAbBjqVEsJc4?usp=sharing, and storing them in the appropriate folder. The folder `experiments/0003/000/checkpoint_165000_.pt` is the default, but any other folder can be chosen as long as it matches the `checkpoint` parameter in `experiments/0003.toml`.
+   * In this scenario, no training is needed. Simply running the code via `python main.py` is enough. If embeddings have already been created (if a file called `embeddings_{image_name}.csv` is already present
+   in `data/03_features`), then one can pass the flag `-g` in order not to re-generate the embeddings, and speed up the overall process.
+   Not using embeddings is also possible, by passing the flag `-ne`.
+
+2. Using on another dataset
+   * Here two distinct options are possible. If a training dataset is already present (composed of several droplet images), alter the file `experiments/model.toml` and place the training dataset and validation
+   datasets paths in, respectively, `train_dataset` and `val_dataset`. If it is not, the model will be trained on the generated droplet images. While training, under `experiments/{image_name}` a new checkpoint
+   will be created. After the code finishes running, in order to not retrain the model when analysing newer images, replace the path present on `experiments/0003.toml`, in the line
+   checkpoint with the latest present checkpoint. Suppose, for instance that the image name is `smallmovement1`. Then there should be a folder `experiments/smallmovement1/000/_____.pt`. In this scenario,
+   one should then replace `checkpoint={previous value}` with `checkpoint=experiments/smallmovement1/000/_____.pt`.
+   * In order to train a new model, pass the flag `-t` to `python main.py`.
+
+### Entering the execution environment
+
+To enter the conda execution environment generated from the `environment.yml` file, type 
+```
+   conda activate <envname>
+```
+where `<envname>` is by default `dsl` if you havent changed it.
+
+
+## Basic Usage
+
+After entering the execution environment, move the command line to this directory.
+
+Then, place using the file explorer, the raw `<imagename>.nd2` image into `data/01_raw/`. (This needs to be only done once).
+
+Next, call 
+```
+   python3 main.py "<imagename>.nd2"
+```
+This will execute the default tracking algorithm.
+To see the options one cann pass to the tracking algorithm, call
+```
+   python3 main.py -h
+``` 
+For example, 
+```
+   python3 main.py "<imagename>.nd2" -ne
+``` 
+will execute the default tracking algorithm, but without deep embedding features.
+
+The tracking results are dropped in `data/05_results/results_<imagename>.csv`.
+
+To visualize the results, call
+```
+   python3 visualizer.py "<imagename>.nd2" "results_<imagename>.nd2"
+```
+more information on the visualizer is given below
+
+
+
+### Relevant Notes
 
 1. The droplet tracking algorithm works only with images that have similar statistics as the images supplied to the group. In particular, the images must be relatively focused and the resolution must be significantly high enough for details within the droplets to be visible. Additionally, the images must be provided in an `.nd2` image format and the images must only contain data about the images of the different channeles across the different frames (just like the images provided to the group).
 
@@ -98,20 +147,6 @@ In particular this means, the visualizer can only be executed after one has exec
 Sometimes, the visualizer may bug and mouse clicks do not register or something like that. In this case, simply click outside of the window of the visualizer (such that the program goes "out-of-focus") and then click on it again. It should work after that.
 
 
-## Training and using Deep Learning Features
 
-1. Analysing regular images
-   * One should begin by downloading the model weights from https://drive.google.com/drive/folders/17FxnvlEciArXhHGG7Ws3jAbBjqVEsJc4?usp=sharing, and storing them in the appropriate folder. The folder `experiments/0003/000/checkpoint_165000_.pt` is the default, but any other folder can be chosen as long as it matches the `checkpoint` parameter in `experiments/0003.toml`.
-   * In this scenario, no training is needed. Simply running the code via `python main.py` is enough. If embeddings have already been created (if a file called `embeddings_{image_name}.csv` is already present
-   in `data/03_features`), then one can pass the flag `-g` in order not to re-generate the embeddings, and speed up the overall process.
-   Not using embeddings is also possible, by passing the flag `-ne`.
-
-2. Using on another dataset
-   * Here two distinct options are possible. If a training dataset is already present (composed of several droplet images), alter the file `experiments/model.toml` and place the training dataset and validation
-   datasets paths in, respectively, `train_dataset` and `val_dataset`. If it is not, the model will be trained on the generated droplet images. While training, under `experiments/{image_name}` a new checkpoint
-   will be created. After the code finishes running, in order to not retrain the model when analysing newer images, replace the path present on `experiments/0003.toml`, in the line
-   checkpoint with the latest present checkpoint. Suppose, for instance that the image name is `smallmovement1`. Then there should be a folder `experiments/smallmovement1/000/_____.pt`. In this scenario,
-   one should then replace `checkpoint={previous value}` with `checkpoint=experiments/smallmovement1/000/_____.pt`.
-   * In order to train a new model, pass the flag `-t` to `python main.py`.
 
    
