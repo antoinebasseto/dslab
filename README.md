@@ -3,6 +3,8 @@
 Repository for the 2022 Data Science Lab Project. Section `Prerequisites` describes
 how to set up environment. Section `Basic Usage` describes how to use the software.
 
+Read the report [here](DSLab_Report.pdf).
+
 ## Prerequisites
 
 ### Software
